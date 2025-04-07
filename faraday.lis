@@ -1,0 +1,195 @@
+     1                                  extern edison
+     2                                  %include "get_res.inc"  
+     1                              <1> ;****************************************************************************************************************************
+     2                              <1> ; Program name: Non-deterministic Random Numbers
+     3                              <1> ; This program generates up to 100 random numbers using the non-deterministic random number generator found inside modern 
+     4                              <1> ; x86 microprocessors. The generated numbers are then normalized to the range 1.0 to 2.0 and sorted. 
+     5                              <1> ; Copyright (C) 2025 Michelle Pham
+     6                              <1> ;                                                                                                                         
+     7                              <1> ; This file is part of the software program "Non-deterministic Random Numbers".                                    
+     8                              <1> ; "Non-deterministic Random Numbers" is free software: you can redistribute it and/or modify it under the terms of    
+     9                              <1> ; the GNU General Public License version 3 as published by the Free Software Foundation.                                  
+    10                              <1> ; "Non-deterministic Random Numbers" is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;     
+    11                              <1> ; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public     
+    12                              <1> ; License for more details. A copy of the GNU General Public License v3 is available here: <https://www.gnu.org/licenses/>.
+    13                              <1> ;****************************************************************************************************************************
+    14                              <1> 
+    15                              <1> ;================================================================================================================================
+    16                              <1> ;
+    17                              <1> ; Author Information
+    18                              <1> ;  Name: Michelle Pham
+    19                              <1> ;  Email: mp28jam@csu.fullerton.edu
+    20                              <1> ;  CWID: 867434789
+    21                              <1> ;  Course: CPSC 240-03
+    22                              <1> ;
+    23                              <1> ; Program Information
+    24                              <1> ;  Name: Non-deterministic Random Numbers
+    25                              <1> ;  Programming Languages: x86-64 Assembly, C++
+    26                              <1> ;  Effective Date: March 25, 2025
+    27                              <1> ;  Latest Update: March 25, 2025
+    28                              <1> ;  Date open source license added: March 25, 2025
+    29                              <1> ;  Files: main.cpp, executive.asm, fill_random_array.asm, isnan.asm
+    30                              <1> ;  Status: Incomplete
+    31                              <1> ;  References Consulted: Ed Jorgensen, "x86-64 Assembly Language Programming with Ubuntu"
+    32                              <1> ;  Future Upgrades: Implement advanced sorting algorithms and parallel number generation.
+    33                              <1> ;
+    34                              <1> ; Purpose
+    35                              <1> ;  This program generates up to 100 random numbers using the non-deterministic random number generator (RDRAND) in modern x86 
+    36                              <1> ;  microprocessors. The generated numbers are normalized to the range 1.0 to 2.0 and then sorted to produce an ordered list. The 
+    37                              <1> ;  goal is to practice techniques for handling random number generation, normalization, and sorting in x86-64 assembly.
+    38                              <1> ;
+    39                              <1> ; Development Information
+    40                              <1> ;  OS: Ubuntu 22.04.4 LTS
+    41                              <1> ;  Text Editor: Visual Studio Code
+    42                              <1> ;  Tools: NASM, G++ compiler, GDB
+    43                              <1> ;
+    44                              <1> ; Current File Information
+    45                              <1> ;  Name: utilities.inc
+    46                              <1> ;  Language: x86-64 Assembly with Intel syntax
+    47                              <1> ;  An include file to store macros for this program.
+    48                              <1> ;
+    49                              <1> ;================================================================================================================================
+    50                              <1> 
+    51                              <1> ;Declarations
+    52                              <1> ;Back-up GPRs
+    53                              <1> %macro    backupGPRs 0
+    54                              <1>   push    rbp
+    55                              <1>   mov    rbp, rsp
+    56                              <1>   push    rbx
+    57                              <1>   push    rcx
+    58                              <1>   push    rdx
+    59                              <1>   push    rsi
+    60                              <1>   push    rdi
+    61                              <1>   push    r8
+    62                              <1>   push    r9
+    63                              <1>   push    r10
+    64                              <1>   push    r11
+    65                              <1>   push    r12
+    66                              <1>   push    r13
+    67                              <1>   push    r14
+    68                              <1>   push    r15
+    69                              <1>   pushf
+    70                              <1> %endmacro
+    71                              <1> 
+    72                              <1> ;Restore GPRs
+    73                              <1> %macro    restoreGPRs 0
+    74                              <1>   popf
+    75                              <1>   pop    r15
+    76                              <1>   pop    r14
+    77                              <1>   pop    r13
+    78                              <1>   pop    r12
+    79                              <1>   pop    r11
+    80                              <1>   pop    r10
+    81                              <1>   pop    r9
+    82                              <1>   pop    r8
+    83                              <1>   pop    rsi
+    84                              <1>   pop    rdi
+    85                              <1>   pop    rdx
+    86                              <1>   pop    rcx
+    87                              <1>   pop    rbx
+    88                              <1>   pop    rbp
+    89                              <1> %endmacro
+    90                              <1> 
+    91                              <1> %macro    backupNGPRs 1
+    92                              <1>   mov    rax, 7
+    93                              <1>   mov    rdx, 0
+    94                              <1>   xsave    [%1]
+    95                              <1> %endmacro
+    96                              <1> 
+    97                              <1> %macro    restoreNGPRs 1
+    98                              <1>   mov    rax, 7
+    99                              <1>   mov    rdx, 0
+   100                              <1>   xrstor    [%1]
+   101                              <1> %endmacro
+   102                              <1> 
+   103                              <1> ;Print out author information and calculate the area using Huron's formula
+   104                              <1> %macro    authorInfo 0
+   105                              <1>   mov    rax, 0
+   106                              <1>   mov    rdi, author_info
+   107                              <1>   call    printf
+   108                              <1> %endmacro
+     3                                  
+     4                                  
+     5                                  STDOUT equ 1       ; Standard output
+     6                                  SYS_write equ 1    ; syscall number for write
+     7                                  SYS_exit equ 60
+     8                                  
+     9                                  
+    10                                  
+    11                                  section .data
+    12 00000000 57656C636F6D652074-     welcome_msg db "Welcome to Electricity brought to you by Michelle Pham.", 10
+    12 00000009 6F20456C6563747269-
+    12 00000012 636974792062726F75-
+    12 0000001B 67687420746F20796F-
+    12 00000024 75206279204D696368-
+    12 0000002D 656C6C65205068616D-
+    12 00000036 2E0A               
+    13 00000038 546869732070726F67-                 db "This program will compute the resistance current flow in your direct circuit.", 10, 0
+    13 00000041 72616D2077696C6C20-
+    13 0000004A 636F6D707574652074-
+    13 00000053 686520726573697374-
+    13 0000005C 616E63652063757272-
+    13 00000065 656E7420666C6F7720-
+    13 0000006E 696E20796F75722064-
+    13 00000077 697265637420636972-
+    13 00000080 637569742E0A00     
+    14 00000087 0A00                                db "", 10, 0
+    15 00000089 8900000000000000        msgLen dq $ - welcome_msg 
+    16                                  
+    17 00000091 546865206472697665-     driver_msg db "The driver received this number ", 0
+    17 0000009A 722072656365697665-
+    17 000000A3 642074686973206E75-
+    17 000000AC 6D6265722000       
+    18 000000B2 2100000000000000        driverLen dq $ - driver_msg 
+    19                                  
+    20 000000BA 616E642077696C6C20-     zero_msg db "and will keep it until next semester.", 10
+    20 000000C3 6B6565702069742075-
+    20 000000CC 6E74696C206E657874-
+    20 000000D5 2073656D6573746572-
+    20 000000DE 2E0A               
+    21 000000E0 41207A65726F207769-              db "A zero will be returned to the Operating System", 10, 0
+    21 000000E9 6C6C20626520726574-
+    21 000000F2 75726E656420746F20-
+    21 000000FB 746865204F70657261-
+    21 00000104 74696E672053797374-
+    21 0000010D 656D0A00           
+    22 00000111 5700000000000000        zeroLen dq $ - zero_msg 
+    23                                  
+    24                                  
+    25                                        ; Compute message length at assembly time
+    26                                  
+    27                                  section .bss
+    28                                  
+    29                                  section .text
+    30                                  global _start             ; Define the entry point
+    31                                  
+    32                                  _start:
+    33                                  
+    34                                  ;     backupGPRs
+    35 00000000 B801000000                  mov rax, SYS_write  
+    36 00000005 BF01000000                  mov rdi, STDOUT     
+    37 0000000A 48BE-                       mov rsi, welcome_msg        
+    37 0000000C [0000000000000000] 
+    38 00000014 488B1425[89000000]          mov rdx, qword [msgLen] 
+    39 0000001C 0F05                        syscall    
+    40                                  
+    41                                      ; ============== CALL EDISION =====================
+    42 0000001E B800000000                  mov rax, 0
+    43 00000023 E8(00000000)                call edison
+    44                                      
+    45                                      ; mov rax, SYS_write  
+    46                                      ; mov rdi, STDOUT     
+    47                                      ; mov rsi, driver_msg        
+    48                                      ; mov rdx, qword [driverLen] 
+    49                                      ; syscall  
+    50                                  
+    51                                      ; mov rax, SYS_write  
+    52                                      ; mov rdi, STDOUT     
+    53                                      ; mov rsi, zero_msg        
+    54                                      ; mov rdx, qword [zeroLen] 
+    55                                      ; syscall  
+    56                                  ;     restoreGPRs
+    57                                  
+    58 00000028 B83C000000                  mov rax, SYS_exit     ; syscall: exit
+    59 0000002D 4831FF                      xor rdi, rdi          ; status 0
+    60 00000030 0F05                        syscall               ; invoke kernel
