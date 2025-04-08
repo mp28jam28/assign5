@@ -284,7 +284,7 @@
    104 000000EB BA79000000                  mov rdx, 121 
    105 000000F0 0F05                        syscall 
    106                                  
-   107                                  ; =========== TAKE INPUT ARRAY OF 3 RESISTANCES ==============
+   107                                  ; =========== TAKE INPUT ARRAY OF 3 RESISTANCES DONE ==============
    108 000000F2 B800000000                  mov    rax, 0  
    109 000000F7 48BF-                       mov    rdi, arr     ; rdi will hold the array
    109 000000F9 [6000000000000000] 
@@ -297,102 +297,104 @@
    116                                  ;===========
    117                                  loop_start:
    118 0000010F 4D39F7                      cmp r15, r14
-   119 00000112 7D38                        jge loop_end ; jump if r15 is greater than rsi
+   119 00000112 7D38                        jge loop_end ; jump if r15 > rsi
    120                                  
    121 00000114 6A00                        push    qword 0    ;need two pushes, two pops since extern functions like scanf needs 16bit
    122 00000116 6A00                        push    qword 0
    123 00000118 B800000000                  mov    rax, SYS_read
    124 0000011D BF00000000                  mov    rdi, STDIN
    125 00000122 4889E6                      mov    rsi, rsp
-   126 00000125 BA30000000                  mov rdx, string_size ; read count
-   127 0000012A 0F05                        syscall
+   126 00000125 BA30000000                  mov rdx, string_size ; read count 
+   127 0000012A 0F05                        syscall     ; TAKES ARRAY INPUT !!!!!!
    128                                  
    129                                      ; Convert the inputted string into a real double.
    130 0000012C B800000000                  mov    rax, 0
    131 00000131 4889E7                      mov    rdi, rsp
    132 00000134 E8(00000000)                call    atof
-   133 00000139 F2440F10F8                  movsd    xmm15, xmm0
+   133 00000139 F2440F10F8                  movsd    xmm15, xmm0 ; atof is returned in xmm0 register
    134                                  
-   135 0000013E F2470F117CFD00              movsd    qword[r13+8*r15], xmm15
-   136                                  
-   137 00000145 49FFC7                      inc    r15
-   138                                  
-   139 00000148 58                          pop    rax
-   140 00000149 58                          pop    rax
-   141                                  
-   142 0000014A EBC3                        jmp    loop_start
+   135                                      ; ADDS INPUTTED DOUBLES INTO ARRAY
+   136 0000013E F2470F117CFD00              movsd    qword[r13+8*r15], xmm15
+   137                                  
+   138                                      ; INCREMENT R15 FOR NEXT ARRAY INPUT
+   139 00000145 49FFC7                      inc    r15
+   140                                  
+   141 00000148 58                          pop    rax
+   142 00000149 58                          pop    rax
    143                                  
-   144                                  loop_end:
-   145 0000014C 4C89F8                      mov    rax, r15
-   146 0000014F 4989C7                      mov    r15, rax
-   147                                      
-   148                                  ; =========== CALL TESLA TO COMPUTE_RESISTANCE ==============
-   149                                      ; mov rax, 0 
-   150                                      ; mov rdi, arr
-   151                                      ; mov, rsi 3
-   152                                      ; call tesla
-   153                                  
-   154                                  
-   155                                  ; =======================
-   156                                      ; Print total resistance
-   157 00000152 B801000000                  mov rax, SYS_write  
-   158 00000157 BF01000000                  mov rdi, STDOUT     
-   159 0000015C 48BE-                       mov rsi, total_resist        
-   159 0000015E [E900000000000000] 
-   160 00000166 BA4E000000                  mov rdx, 78
-   161 0000016B 0F05                        syscall 
-   162                                  
-   163                                  
-   164                                  ; =========== PRINT TOTAL RESISTANCE ==============
+   144 0000014A EBC3                        jmp    loop_start
+   145                                  
+   146                                  loop_end:
+   147 0000014C 4C89F8                      mov    rax, r15
+   148 0000014F 4989C7                      mov    r15, rax
+   149                                      
+   150                                  ; =========== CALL TESLA TO COMPUTE_RESISTANCE ==============
+   151                                      ; mov rax, 0 
+   152                                      ; mov rdi, arr
+   153                                      ; mov, rsi 3
+   154                                      ; call tesla
+   155                                  
+   156                                  
+   157                                  ; =======================
+   158                                      ; Print total resistance
+   159 00000152 B801000000                  mov rax, SYS_write  
+   160 00000157 BF01000000                  mov rdi, STDOUT     
+   161 0000015C 48BE-                       mov rsi, total_resist        
+   161 0000015E [E900000000000000] 
+   162 00000166 BA4E000000                  mov rdx, 78
+   163 0000016B 0F05                        syscall 
+   164                                  
    165                                  
-   166                                  
-   167                                  ;     ; Print prompt for user to enter the EMF
-   168                                  ;     mov rax, SYS_write  
-   169                                  ;     mov rdi, STDOUT     
-   170                                  ;     mov rsi, emf_msg        
-   171                                  ;     mov rdx, 103
-   172                                  ;     syscall 
-   173                                  
-   174                                  ; ; =========== TAKE INPUT FOR EMF ==============
+   166                                  ; =========== PRINT TOTAL RESISTANCE ==============
+   167                                  
+   168                                  
+   169                                  ;     ; Print prompt for user to enter the EMF
+   170                                  ;     mov rax, SYS_write  
+   171                                  ;     mov rdi, STDOUT     
+   172                                  ;     mov rsi, emf_msg        
+   173                                  ;     mov rdx, 103
+   174                                  ;     syscall 
    175                                  
-   176                                  ;     ; Print current
-   177                                  ;     mov rax, SYS_write  
-   178                                  ;     mov rdi, STDOUT     
-   179                                  ;     mov rsi, compute_current        
-   180                                  ;     mov rdx, 67 
-   181                                  ;     syscall 
-   182                                  
-   183                                  ; =========== CALL TESLA TO COMPUTE_CURRENT ==============
-   184                                  ; =========== PRINT COMPUTED VALUE ==============
-   185                                  
-   186                                      ; Print the last thanks
-   187                                      ; mov rax, SYS_write  
-   188                                      ; mov rdi, STDOUT     
-   189                                      ; mov rsi, last_thanks        
-   190                                      ; mov rdx, 16 
-   191                                      ; syscall     
-   192                                  
-   193                                      ; ; Print the user's name
-   194                                      ; mov rax, SYS_write  
-   195                                      ; mov rdi, STDOUT     
-   196                                      ; mov rsi, user_name        
-   197                                      ; mov rdx, 16 
-   198                                      ; syscall 
-   199                                  ; =========== PRINT REST OF THE MESSAGE ==============
-   200                                      restoreGPRs
-   200 0000016D 9D                  <1>  popf
-   200 0000016E 415F                <1>  pop r15
-   200 00000170 415E                <1>  pop r14
-   200 00000172 415D                <1>  pop r13
-   200 00000174 415C                <1>  pop r12
-   200 00000176 415B                <1>  pop r11
-   200 00000178 415A                <1>  pop r10
-   200 0000017A 4159                <1>  pop r9
-   200 0000017C 4158                <1>  pop r8
-   200 0000017E 5E                  <1>  pop rsi
-   200 0000017F 5F                  <1>  pop rdi
-   200 00000180 5A                  <1>  pop rdx
-   200 00000181 59                  <1>  pop rcx
-   200 00000182 5B                  <1>  pop rbx
-   200 00000183 5D                  <1>  pop rbp
-   201 00000184 C3                          ret
+   176                                  ; ; =========== TAKE INPUT FOR EMF ==============
+   177                                  
+   178                                  ;     ; Print current
+   179                                  ;     mov rax, SYS_write  
+   180                                  ;     mov rdi, STDOUT     
+   181                                  ;     mov rsi, compute_current        
+   182                                  ;     mov rdx, 67 
+   183                                  ;     syscall 
+   184                                  
+   185                                  ; =========== CALL TESLA TO COMPUTE_CURRENT ==============
+   186                                  ; =========== PRINT COMPUTED VALUE ==============
+   187                                  
+   188                                      ; Print the last thanks
+   189                                      ; mov rax, SYS_write  
+   190                                      ; mov rdi, STDOUT     
+   191                                      ; mov rsi, last_thanks        
+   192                                      ; mov rdx, 16 
+   193                                      ; syscall     
+   194                                  
+   195                                      ; ; Print the user's name
+   196                                      ; mov rax, SYS_write  
+   197                                      ; mov rdi, STDOUT     
+   198                                      ; mov rsi, user_name        
+   199                                      ; mov rdx, 16 
+   200                                      ; syscall 
+   201                                  ; =========== PRINT REST OF THE MESSAGE ==============
+   202                                      restoreGPRs
+   202 0000016D 9D                  <1>  popf
+   202 0000016E 415F                <1>  pop r15
+   202 00000170 415E                <1>  pop r14
+   202 00000172 415D                <1>  pop r13
+   202 00000174 415C                <1>  pop r12
+   202 00000176 415B                <1>  pop r11
+   202 00000178 415A                <1>  pop r10
+   202 0000017A 4159                <1>  pop r9
+   202 0000017C 4158                <1>  pop r8
+   202 0000017E 5E                  <1>  pop rsi
+   202 0000017F 5F                  <1>  pop rdi
+   202 00000180 5A                  <1>  pop rdx
+   202 00000181 59                  <1>  pop rcx
+   202 00000182 5B                  <1>  pop rbx
+   202 00000183 5D                  <1>  pop rbp
+   203 00000184 C3                          ret

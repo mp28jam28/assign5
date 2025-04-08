@@ -7,11 +7,15 @@ SYS_exit equ 60
 
 string_size equ 48
 
+
 %include "get_res.inc"
+global tesla
 
 section .data
 
 section .bss
+backup_storage    resb 832
+
 
 ; R0 = 1/R1 + 1/R2 + 1/R3
 ; total R = 1/R0
@@ -20,23 +24,20 @@ section .bss
 
 section .text
 
-
-
-atof:
+tesla:
     ; Back up
     backupGPRs
-    backupNGPRs
- 
+    backupNGPRs backup_storage
 
     ; Parameters
-    mov     r15, rdi            ; An array of char with null termination expected
+    mov     r15, rdi         ; An array of 3 inputted numbers
+    ; use r8, r9, r10, r11, r12
 
     ; Find where the radix point is
     ; TODO: Add checks for non-float using isfloat
     xor     r14, r14            ; Index
 
 
-    restoreNGPRs
+    restoreNGPRs backup_storage
     restoreGPRs
-global tesla
-tesla:
+

@@ -104,7 +104,7 @@ edison:
     mov rdx, 121 
     syscall 
 
-; =========== TAKE INPUT ARRAY OF 3 RESISTANCES ==============
+; =========== TAKE INPUT ARRAY OF 3 RESISTANCES DONE ==============
     mov    rax, 0  
     mov    rdi, arr     ; rdi will hold the array
     mov    rsi, 3      ; rsi holds # of cells in array
@@ -116,24 +116,26 @@ edison:
 ;===========
 loop_start:
     cmp r15, r14
-    jge loop_end ; jump if r15 is greater than rsi
+    jge loop_end ; jump if r15 > rsi
 
     push    qword 0    ;need two pushes, two pops since extern functions like scanf needs 16bit
     push    qword 0
     mov    rax, SYS_read
     mov    rdi, STDIN
     mov    rsi, rsp
-    mov rdx, string_size ; read count
-    syscall
+    mov rdx, string_size ; read count 
+    syscall     ; TAKES ARRAY INPUT !!!!!!
 
     ; Convert the inputted string into a real double.
     mov    rax, 0
     mov    rdi, rsp
     call    atof
-    movsd    xmm15, xmm0
+    movsd    xmm15, xmm0 ; atof is returned in xmm0 register
 
+    ; ADDS INPUTTED DOUBLES INTO ARRAY
     movsd    qword[r13+8*r15], xmm15
 
+    ; INCREMENT R15 FOR NEXT ARRAY INPUT
     inc    r15
 
     pop    rax

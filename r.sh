@@ -9,6 +9,9 @@ nasm -f elf64 -l edison.lis -o edison.o edison.asm
 echo "Assembling the source file atof.asm..."
 nasm -f elf64 -l atof.lis -o atof.o atof.asm
 
+echo "Assembling the source file tesla.asm..."
+nasm -f elf64 -l tesla.lis -o tesla.o tesla.asm
+
 echo "Linking the object modules to create an executable file..."
 ld faraday.o edison.o atof.o -o calc.out
 
