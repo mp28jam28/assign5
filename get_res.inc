@@ -48,7 +48,6 @@
 ;
 ;================================================================================================================================
 
-;Declarations
 ;Back-up GPRs
 %macro    backupGPRs 0
   push    rbp
@@ -105,4 +104,46 @@
   mov    rax, 0
   mov    rdi, author_info
   call    printf
+%endmacro
+
+
+%macro GET_ARRAY_INPUT 3
+    ; %1 = destination array (e.g., arr)
+    ; %2 = number of elements (e.g., 3)
+    ; %3 = string buffer size (e.g., 32)
+
+    xor    r15, r15             ; r15 = index
+    mov    r13, %1              ; r13 = base address of array
+    mov    r14, %2              ; r14 = number of elements
+
+.loop_start:
+    cmp    r15, r14
+    jge    .loop_end
+
+    push   qword 0              ; align stack for scanf (16-byte)
+    push   qword 0
+
+    mov    rax, 0               ; syscall: SYS_read (0)
+    mov    rdi, 0               ; STDIN
+    mov    rsi, rsp             ; buffer (top of stack)
+    mov    rdx, %3              ; buffer size (e.g., 32)
+    syscall
+
+    ; Convert input string to double
+    mov    rax, 0
+    mov    rdi, rsp
+    call   atof
+    movsd  xmm15, xmm0
+
+    ; Store into array
+    movsd  qword [r13 + r15*8], xmm15
+
+    inc    r15
+
+    pop    rax
+    pop    rax
+
+    jmp    .loop_start
+
+.loop_end:
 %endmacro

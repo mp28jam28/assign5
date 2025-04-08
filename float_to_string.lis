@@ -1,0 +1,47 @@
+     1                                  global float_to_string
+     2                                  
+     3                                  section .data
+     4 00000000 2E00                        decimal_point db ".", 0   ; For printing the decimal point
+     5 00000002 202020202020202020-         total_resistance db "           ", 0 ; Reserve space for the string (adjust size as needed)
+     5 0000000B 202000             
+     6                                  
+     7                                  section .text
+     8                                      global float_to_string
+     9                                  
+    10                                  float_to_string:
+    11                                      ; Convert the double (xmm0) into an integer
+    12 00000000 F2480F2CC0                  cvttsd2si rax, xmm0         ; Convert double (xmm0) to integer (rax)
+    13 00000005 4889C3                      mov rbx, rax                ; Store the integer part in rbx
+    14                                  
+    15                                      ; Convert the integer part (in rbx) to string
+    16 00000008 B90A000000                  mov rcx, 10                 ; Divisor for base 10 (decimal)
+    17 0000000D 48BF-                       mov rdi, total_resistance + 12  ; Point to the end of the buffer to store the digits
+    17 0000000F [0E00000000000000] 
+    18 00000017 4883C70C                    add rdi, 12                 ; Start from the end of the buffer
+    19                                  
+    20                                  convert_integer_to_string:
+    21 0000001B 4831D2                      xor rdx, rdx                ; Clear remainder
+    22 0000001E 48F7F1                      div rcx                      ; rax = rbx / 10, rdx = rbx % 10
+    23 00000021 80C230                      add dl, '0'                  ; Convert remainder to ASCII
+    24 00000024 8817                        mov [rdi], dl                ; Store the character in the buffer
+    25 00000026 4889C3                      mov rbx, rax                ; Update rbx with the quotient (for next iteration)
+    26                                  
+    27                                      ; Check if rbx is zero (stop loop when integer part is exhausted)
+    28 00000029 4883FB00                    cmp rbx, 0                   ; Compare rbx with 0
+    29 0000002D 75EC                        jne convert_integer_to_string  ; If rbx != 0, continue the conversion
+    30                                  
+    31                                      ; Now, we have finished converting the integer part, and the pointer is at the start of the integer part
+    32 0000002F 4889FB                      mov rbx, rdi                 ; Save the pointer to the start of the integer part
+    33                                  
+    34                                      ; If you need to handle the fractional part, you could add a similar loop here
+    35                                      ; For now, we will skip the fractional part and print the integer part as is.
+    36                                  
+    37                                      ; ; Print the result string using SYS_write
+    38                                      ; mov rax, SYS_write           ; syscall number for SYS_write
+    39                                      ; mov rdi, STDOUT              ; STDOUT file descriptor
+    40                                      ; mov rsi, rbx                 ; String address (start of the buffer)
+    41                                      ; mov rdx, 50                  ; Length of the string (adjust as necessary)
+    42                                      ; syscall                      ; Make the syscall to print the string
+    43                                  
+    44                                      ; Clean up and return
+    45 00000032 C3                          ret

@@ -10,6 +10,8 @@ string_size equ 48
 %include "get_res.inc"
 extern isfloat
 extern atof
+extern tesla
+extern ftoa
 
 section .data
 name_prompt db "Please enter your full name: ", 0
@@ -34,6 +36,7 @@ last_thanks db "amps", 10, 10
             db "Thank you "
 
 float_format    db "%s", 0
+; buffer db 64
 
 
 section .bss
@@ -41,7 +44,7 @@ user_name   resb string_size
 career_path resb string_size
 ; resist_format resb 128
 arr         resq 3
-total_resistance resb 10
+total_resistance resb 20
 
 section .text
 global edison
@@ -105,53 +108,19 @@ edison:
     syscall 
 
 ; =========== TAKE INPUT ARRAY OF 3 RESISTANCES DONE ==============
-    mov    rax, 0  
-    mov    rdi, arr     ; rdi will hold the array
-    mov    rsi, 3      ; rsi holds # of cells in array
-    xor    r15, r15     ; set r15 = 0
-
-    mov    r13, rdi
-    mov    r14, rsi    ;r14 holds the number of cells in the array, r10
-
-;===========
-loop_start:
-    cmp r15, r14
-    jge loop_end ; jump if r15 > rsi
-
-    push    qword 0    ;need two pushes, two pops since extern functions like scanf needs 16bit
-    push    qword 0
-    mov    rax, SYS_read
-    mov    rdi, STDIN
-    mov    rsi, rsp
-    mov rdx, string_size ; read count 
-    syscall     ; TAKES ARRAY INPUT !!!!!!
-
-    ; Convert the inputted string into a real double.
-    mov    rax, 0
-    mov    rdi, rsp
-    call    atof
-    movsd    xmm15, xmm0 ; atof is returned in xmm0 register
-
-    ; ADDS INPUTTED DOUBLES INTO ARRAY
-    movsd    qword[r13+8*r15], xmm15
-
-    ; INCREMENT R15 FOR NEXT ARRAY INPUT
-    inc    r15
-
-    pop    rax
-    pop    rax
-
-    jmp    loop_start
-
-loop_end:
-    mov    rax, r15
-    mov    r15, rax
+    mov rax, 0 
+    mov rdi, arr       ; array
+    mov rsi, 3         ; count
+    mov rdx, 32        ; string buffer size
+    GET_ARRAY_INPUT rdi, rsi, rdx
     
-; =========== CALL TESLA TO COMPUTE_RESISTANCE ==============
-    ; mov rax, 0 
-    ; mov rdi, arr
-    ; mov, rsi 3
-    ; call tesla
+; ; =========== CALL TESLA TO COMPUTE_RESISTANCE ==============
+    mov rax, 0 
+    mov rdi, arr
+    mov rsi, 3
+    call tesla
+    ; movsd [total_resistance], xmm0
+    ; call ftoa
 
 
 ; =======================
@@ -159,11 +128,21 @@ loop_end:
     mov rax, SYS_write  
     mov rdi, STDOUT     
     mov rsi, total_resist        
-    mov rdx, 78
+    mov rdx, 72
     syscall 
 
 
 ; =========== PRINT TOTAL RESISTANCE ==============
+    
+    cvttsd2si rax, xmm0            ; convert float to integer (truncate)
+    mov rbx, total_resistance                ; point to result buffer
+    call ftoa                ; convert integer to string
+
+    mov rax, SYS_write  
+    mov rdi, STDOUT     
+    mov rsi, total_resistance       
+    mov rdx, 25
+    syscall 
 
 
 ;     ; Print prompt for user to enter the EMF

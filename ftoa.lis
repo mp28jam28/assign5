@@ -1,0 +1,43 @@
+     1                                  section .text
+     2                                  global ftoa
+     3                                  
+     4                                  ; Converts an integer in rax to a null-terminated string in the buffer pointed by rbx.
+     5                                  ftoa:
+     6 00000000 53                          push    rbx         ; Save rbx (buffer pointer) because we will use it.
+     7 00000001 51                          push    rcx         ; Save rcx as a counter.
+     8 00000002 52                          push    rdx         ; Save rdx as a divisor.
+     9                                  
+    10 00000003 B90A000000                  mov     rcx, 10     ; Divisor for extracting digits (base 10)
+    11 00000008 4831D2                      xor     rdx, rdx    ; Clear rdx for division (quotient will go into rax)
+    12 0000000B 4889DE                      mov     rsi, rbx    ; rsi points to the buffer for storing digits.
+    13                                  
+    14                                      ; Check for zero case
+    15 0000000E 4883F800                    cmp     rax, 0
+    16 00000012 7411                        je      handle_zero
+    17                                  
+    18                                  convert_loop:
+    19                                      ; Divide the number by 10 to get the next digit.
+    20 00000014 48F7F1                      div     rcx          ; rax = rax / 10, rdx = rax % 10
+    21 00000017 80C230                      add     dl, '0'      ; Convert the digit in rdx to ASCII
+    22 0000001A 8816                        mov     [rsi], dl    ; Store the digit in the buffer
+    23 0000001C 48FFC6                      inc     rsi          ; Move buffer pointer
+    24                                  
+    25                                      ; Keep dividing, this will go until the number is zero
+    26 0000001F 4889D0                      mov     rax, rdx     ; Move remainder into rax for the next division
+    27 00000022 4831D2                      xor     rdx, rdx     ; Clear rdx to prepare for the next division
+    28                                  
+    29                                      ; At this point the loop doesn't check if it's done, so it continues.
+    30                                  
+    31                                  handle_zero:
+    32                                      ; Special case for zero (since zero is not handled by the loop above).
+    33 00000025 C60630                      mov     byte [rsi], '0'
+    34 00000028 48FFC6                      inc     rsi
+    35                                  
+    36                                      ; Null-terminate the string.
+    37 0000002B C60600                      mov     byte [rsi], 0
+    38                                  
+    39                                      ; Restore registers and return.
+    40 0000002E 5A                          pop     rdx
+    41 0000002F 59                          pop     rcx
+    42 00000030 5B                          pop     rbx
+    43 00000031 C3                          ret

@@ -1,14 +1,11 @@
-     1                                  STDIN equ 0       ; Standard input
-     2                                  STDOUT equ 1       ; Standard output
-     3                                  
-     4                                  SYS_read equ 0     ; syscall number for read
-     5                                  SYS_write equ 1    ; syscall number for write
-     6                                  SYS_exit equ 60
+     1                                  SYS_read equ 0     ; syscall number for read
+     2                                  SYS_write equ 1    ; syscall number for write
+     3                                  SYS_exit equ 60
+     4                                  
+     5                                  string_size equ 48
+     6                                  
      7                                  
-     8                                  string_size equ 48
-     9                                  
-    10                                  
-    11                                  %include "get_res.inc"
+     8                                  %include "get_res.inc"
      1                              <1> ;****************************************************************************************************************************
      2                              <1> ; Program name: Non-deterministic Random Numbers
      3                              <1> ; This program generates up to 100 random numbers using the non-deterministic random number generator found inside modern 
@@ -59,130 +56,202 @@
     48                              <1> ;
     49                              <1> ;================================================================================================================================
     50                              <1> 
-    51                              <1> ;Declarations
-    52                              <1> ;Back-up GPRs
-    53                              <1> %macro    backupGPRs 0
-    54                              <1>   push    rbp
-    55                              <1>   mov    rbp, rsp
-    56                              <1>   push    rbx
-    57                              <1>   push    rcx
-    58                              <1>   push    rdx
-    59                              <1>   push    rsi
-    60                              <1>   push    rdi
-    61                              <1>   push    r8
-    62                              <1>   push    r9
-    63                              <1>   push    r10
-    64                              <1>   push    r11
-    65                              <1>   push    r12
-    66                              <1>   push    r13
-    67                              <1>   push    r14
-    68                              <1>   push    r15
-    69                              <1>   pushf
-    70                              <1> %endmacro
-    71                              <1> 
-    72                              <1> ;Restore GPRs
-    73                              <1> %macro    restoreGPRs 0
-    74                              <1>   popf
-    75                              <1>   pop    r15
-    76                              <1>   pop    r14
-    77                              <1>   pop    r13
-    78                              <1>   pop    r12
-    79                              <1>   pop    r11
-    80                              <1>   pop    r10
-    81                              <1>   pop    r9
-    82                              <1>   pop    r8
-    83                              <1>   pop    rsi
-    84                              <1>   pop    rdi
-    85                              <1>   pop    rdx
-    86                              <1>   pop    rcx
-    87                              <1>   pop    rbx
-    88                              <1>   pop    rbp
-    89                              <1> %endmacro
-    90                              <1> 
-    91                              <1> %macro    backupNGPRs 1
-    92                              <1>   mov    rax, 7
-    93                              <1>   mov    rdx, 0
-    94                              <1>   xsave    [%1]
-    95                              <1> %endmacro
-    96                              <1> 
-    97                              <1> %macro    restoreNGPRs 1
-    98                              <1>   mov    rax, 7
-    99                              <1>   mov    rdx, 0
-   100                              <1>   xrstor    [%1]
-   101                              <1> %endmacro
-   102                              <1> 
-   103                              <1> ;Print out author information and calculate the area using Huron's formula
-   104                              <1> %macro    authorInfo 0
-   105                              <1>   mov    rax, 0
-   106                              <1>   mov    rdi, author_info
-   107                              <1>   call    printf
-   108                              <1> %endmacro
-    12                                  global tesla
+    51                              <1> ;Back-up GPRs
+    52                              <1> %macro    backupGPRs 0
+    53                              <1>   push    rbp
+    54                              <1>   mov    rbp, rsp
+    55                              <1>   push    rbx
+    56                              <1>   push    rcx
+    57                              <1>   push    rdx
+    58                              <1>   push    rsi
+    59                              <1>   push    rdi
+    60                              <1>   push    r8
+    61                              <1>   push    r9
+    62                              <1>   push    r10
+    63                              <1>   push    r11
+    64                              <1>   push    r12
+    65                              <1>   push    r13
+    66                              <1>   push    r14
+    67                              <1>   push    r15
+    68                              <1>   pushf
+    69                              <1> %endmacro
+    70                              <1> 
+    71                              <1> ;Restore GPRs
+    72                              <1> %macro    restoreGPRs 0
+    73                              <1>   popf
+    74                              <1>   pop    r15
+    75                              <1>   pop    r14
+    76                              <1>   pop    r13
+    77                              <1>   pop    r12
+    78                              <1>   pop    r11
+    79                              <1>   pop    r10
+    80                              <1>   pop    r9
+    81                              <1>   pop    r8
+    82                              <1>   pop    rsi
+    83                              <1>   pop    rdi
+    84                              <1>   pop    rdx
+    85                              <1>   pop    rcx
+    86                              <1>   pop    rbx
+    87                              <1>   pop    rbp
+    88                              <1> %endmacro
+    89                              <1> 
+    90                              <1> %macro    backupNGPRs 1
+    91                              <1>   mov    rax, 7
+    92                              <1>   mov    rdx, 0
+    93                              <1>   xsave    [%1]
+    94                              <1> %endmacro
+    95                              <1> 
+    96                              <1> %macro    restoreNGPRs 1
+    97                              <1>   mov    rax, 7
+    98                              <1>   mov    rdx, 0
+    99                              <1>   xrstor    [%1]
+   100                              <1> %endmacro
+   101                              <1> 
+   102                              <1> ;Print out author information and calculate the area using Huron's formula
+   103                              <1> %macro    authorInfo 0
+   104                              <1>   mov    rax, 0
+   105                              <1>   mov    rdi, author_info
+   106                              <1>   call    printf
+   107                              <1> %endmacro
+   108                              <1> 
+   109                              <1> 
+   110                              <1> %macro GET_ARRAY_INPUT 3
+   111                              <1>     ; %1 = destination array (e.g., arr)
+   112                              <1>     ; %2 = number of elements (e.g., 3)
+   113                              <1>     ; %3 = string buffer size (e.g., 32)
+   114                              <1> 
+   115                              <1>     xor    r15, r15             ; r15 = index
+   116                              <1>     mov    r13, %1              ; r13 = base address of array
+   117                              <1>     mov    r14, %2              ; r14 = number of elements
+   118                              <1> 
+   119                              <1> .loop_start:
+   120                              <1>     cmp    r15, r14
+   121                              <1>     jge    .loop_end
+   122                              <1> 
+   123                              <1>     push   qword 0              ; align stack for scanf (16-byte)
+   124                              <1>     push   qword 0
+   125                              <1> 
+   126                              <1>     mov    rax, 0               ; syscall: SYS_read (0)
+   127                              <1>     mov    rdi, 0               ; STDIN
+   128                              <1>     mov    rsi, rsp             ; buffer (top of stack)
+   129                              <1>     mov    rdx, %3              ; buffer size (e.g., 32)
+   130                              <1>     syscall
+   131                              <1> 
+   132                              <1>     ; Convert input string to double
+   133                              <1>     mov    rax, 0
+   134                              <1>     mov    rdi, rsp
+   135                              <1>     call   atof
+   136                              <1>     movsd  xmm15, xmm0
+   137                              <1> 
+   138                              <1>     ; Store into array
+   139                              <1>     movsd  qword [r13 + r15*8], xmm15
+   140                              <1> 
+   141                              <1>     inc    r15
+   142                              <1> 
+   143                              <1>     pop    rax
+   144                              <1>     pop    rax
+   145                              <1> 
+   146                              <1>     jmp    .loop_start
+   147                              <1> 
+   148                              <1> .loop_end:
+   149                              <1> %endmacro
+     9                                  global tesla
+    10                                  
+    11                                  section .data
+    12 00000000 000000000000F03F        one dq 1.0
     13                                  
-    14                                  section .data
-    15                                  
-    16                                  section .bss
-    17 00000000 <res 00000340>          backup_storage    resb 832
-    18                                  
+    14                                  section .bss
+    15 00000000 <res 00000340>          backup_storage    resb 832
+    16                                  
+    17                                  ; R0 = 1/R1 + 1/R2 + 1/R3
+    18                                  ; total R = 1/R0
     19                                  
-    20                                  ; R0 = 1/R1 + 1/R2 + 1/R3
-    21                                  ; total R = 1/R0
-    22                                  
-    23                                  ; formula I = E/R 
-    24                                  
-    25                                  section .text
-    26                                  
-    27                                  tesla:
-    28                                      ; Back up
-    29                                      backupGPRs
-    29 00000000 55                  <1>  push rbp
-    29 00000001 4889E5              <1>  mov rbp, rsp
-    29 00000004 53                  <1>  push rbx
-    29 00000005 51                  <1>  push rcx
-    29 00000006 52                  <1>  push rdx
-    29 00000007 56                  <1>  push rsi
-    29 00000008 57                  <1>  push rdi
-    29 00000009 4150                <1>  push r8
-    29 0000000B 4151                <1>  push r9
-    29 0000000D 4152                <1>  push r10
-    29 0000000F 4153                <1>  push r11
-    29 00000011 4154                <1>  push r12
-    29 00000013 4155                <1>  push r13
-    29 00000015 4156                <1>  push r14
-    29 00000017 4157                <1>  push r15
-    29 00000019 9C                  <1>  pushf
-    30                                      backupNGPRs backup_storage
-    30 0000001A B807000000          <1>  mov rax, 7
-    30 0000001F BA00000000          <1>  mov rdx, 0
-    30 00000024 0FAE2425[00000000]  <1>  xsave [%1]
-    31                                  
-    32                                      ; Parameters
-    33 0000002C 4989FF                      mov     r15, rdi         ; An array of 3 inputted numbers
-    34                                      ; use r8, r9, r10, r11, r12
-    35                                  
-    36                                      ; Find where the radix point is
-    37                                      ; TODO: Add checks for non-float using isfloat
-    38 0000002F 4D31F6                      xor     r14, r14            ; Index
+    20                                  ; formula I = E/R 
+    21                                  
+    22                                  section .text
+    23                                  
+    24                                  tesla:
+    25                                      ; Back up
+    26                                      backupGPRs
+    26 00000000 55                  <1>  push rbp
+    26 00000001 4889E5              <1>  mov rbp, rsp
+    26 00000004 53                  <1>  push rbx
+    26 00000005 51                  <1>  push rcx
+    26 00000006 52                  <1>  push rdx
+    26 00000007 56                  <1>  push rsi
+    26 00000008 57                  <1>  push rdi
+    26 00000009 4150                <1>  push r8
+    26 0000000B 4151                <1>  push r9
+    26 0000000D 4152                <1>  push r10
+    26 0000000F 4153                <1>  push r11
+    26 00000011 4154                <1>  push r12
+    26 00000013 4155                <1>  push r13
+    26 00000015 4156                <1>  push r14
+    26 00000017 4157                <1>  push r15
+    26 00000019 9C                  <1>  pushf
+    27                                      backupNGPRs backup_storage
+    27 0000001A B807000000          <1>  mov rax, 7
+    27 0000001F BA00000000          <1>  mov rdx, 0
+    27 00000024 0FAE2425[00000000]  <1>  xsave [%1]
+    28                                  
+    29 0000002C 660F57C0                    xorpd xmm0, xmm0
+    30 00000030 4D31FF                      xor r15, r15    ; index counter set to 0
+    31                                  .loop_start:
+    32 00000033 4939F7                      cmp r15, rsi    
+    33 00000036 7D1C                        jge .loop_finish
+    34                                  
+    35 00000038 F2420F100CFF                movsd xmm1, [rdi + r15*8] ; move current index value into xmm1
+    36                                  
+    37 0000003E F20F101425-                 movsd xmm2, [one]
+    37 00000043 [00000000]         
+    38 00000047 F20F5ED1                    divsd xmm2, xmm1 ; xmm2 = 1/R
     39                                  
-    40                                  
-    41                                      restoreNGPRs backup_storage
-    41 00000032 B807000000          <1>  mov rax, 7
-    41 00000037 BA00000000          <1>  mov rdx, 0
-    41 0000003C 0FAE2C25[00000000]  <1>  xrstor [%1]
-    42                                      restoreGPRs
-    42 00000044 9D                  <1>  popf
-    42 00000045 415F                <1>  pop r15
-    42 00000047 415E                <1>  pop r14
-    42 00000049 415D                <1>  pop r13
-    42 0000004B 415C                <1>  pop r12
-    42 0000004D 415B                <1>  pop r11
-    42 0000004F 415A                <1>  pop r10
-    42 00000051 4159                <1>  pop r9
-    42 00000053 4158                <1>  pop r8
-    42 00000055 5E                  <1>  pop rsi
-    42 00000056 5F                  <1>  pop rdi
-    42 00000057 5A                  <1>  pop rdx
-    42 00000058 59                  <1>  pop rcx
-    42 00000059 5B                  <1>  pop rbx
-    42 0000005A 5D                  <1>  pop rbp
-    43                                  
+    40 0000004B F20F58C2                    addsd xmm0, xmm2    ; xmm0 += 1/R
+    41                                  
+    42 0000004F 49FFC7                      inc r15
+    43 00000052 EBDF                        jmp .loop_start
+    44                                  
+    45                                  .loop_finish:
+    46 00000054 F20F101C25-                 movsd xmm3, [one] ; xmm3 holds 1.0
+    46 00000059 [00000000]         
+    47 0000005D F20F5ED8                    divsd xmm3, xmm0 ; xmm3 now holds total resistance = 1/R
+    48 00000061 F20F10C3                    movsd xmm0, xmm3
+    49                                  
+    50                                      restoreNGPRs backup_storage
+    50 00000065 B807000000          <1>  mov rax, 7
+    50 0000006A BA00000000          <1>  mov rdx, 0
+    50 0000006F 0FAE2C25[00000000]  <1>  xrstor [%1]
+    51                                      restoreGPRs
+    51 00000077 9D                  <1>  popf
+    51 00000078 415F                <1>  pop r15
+    51 0000007A 415E                <1>  pop r14
+    51 0000007C 415D                <1>  pop r13
+    51 0000007E 415C                <1>  pop r12
+    51 00000080 415B                <1>  pop r11
+    51 00000082 415A                <1>  pop r10
+    51 00000084 4159                <1>  pop r9
+    51 00000086 4158                <1>  pop r8
+    51 00000088 5E                  <1>  pop rsi
+    51 00000089 5F                  <1>  pop rdi
+    51 0000008A 5A                  <1>  pop rdx
+    51 0000008B 59                  <1>  pop rcx
+    51 0000008C 5B                  <1>  pop rbx
+    51 0000008D 5D                  <1>  pop rbp
+    52                                  
+    53 0000008E C3                          ret
+    54                                  
+    55                                  
+    56                                  
+    57                                  
+    58                                  
+    59                                      ; ; Parameters
+    60                                      ; mov     r15, rdi         ; An array of 3 inputted numbers
+    61                                      ; ; use r8, r9, r10, r11, r12
+    62                                      ; ; It computes the resistance of the full circuit according to the equation 
+    63                                      ; ; R = 1/((1/R1) + ((1/R2) + (1/R3)).   The computed R is returned to the caller.
+    64                                  
+    65                                      ; ; Find where the radix point is
+    66                                      ; ; TODO: Add checks for non-float using isfloat
+    67                                      ; xor     r14, r14            ; Index
+    68                                  
+    69                                  
