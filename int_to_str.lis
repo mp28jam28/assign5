@@ -1,0 +1,33 @@
+     1                                  section .bss
+     2 00000000 <res 00000015>              int_buffer resb 21         ; 20 digits max for 64-bit + null terminator
+     3                                  
+     4                                  section .text
+     5                                  global int_to_str
+     6                                  
+     7                                  int_to_str:
+     8 00000000 53                          push rbx
+     9 00000001 51                          push rcx
+    10 00000002 52                          push rdx
+    11                                  
+    12 00000003 B90A000000                  mov rcx, 10                ; Base 10
+    13 00000008 48BB-                       mov rbx, int_buffer
+    13 0000000A [0000000000000000] 
+    14 00000012 4883C314                    add rbx, 20                ; Point to end of buffer
+    15 00000016 C60300                      mov byte [rbx], 0          ; Null-terminate
+    16                                  
+    17                                  .next_digit:
+    18 00000019 4831D2                      xor rdx, rdx
+    19 0000001C 48F7F1                      div rcx                    ; RAX ÷ 10, quotient in RAX, remainder in RDX
+    20 0000001F 4883EB01                    sub rbx, 1
+    21 00000023 80C230                      add dl, '0'                ; Convert digit to ASCII
+    22 00000026 8813                        mov [rbx], dl
+    23                                  
+    24 00000028 4883F800                    cmp rax, 0
+    25 0000002C 75EB                        jne .next_digit            ; Continue loop if RAX > 0
+    26                                  
+    27 0000002E 4889D8                      mov rax, rbx               ; Return pointer to result string in RAX
+    28                                  
+    29 00000031 5A                          pop rdx
+    30 00000032 59                          pop rcx
+    31 00000033 5B                          pop rbx
+    32 00000034 C3                          ret

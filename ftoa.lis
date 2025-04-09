@@ -1,43 +1,59 @@
-     1                                  section .text
-     2                                  global ftoa
-     3                                  
-     4                                  ; Converts an integer in rax to a null-terminated string in the buffer pointed by rbx.
-     5                                  ftoa:
-     6 00000000 53                          push    rbx         ; Save rbx (buffer pointer) because we will use it.
-     7 00000001 51                          push    rcx         ; Save rcx as a counter.
-     8 00000002 52                          push    rdx         ; Save rdx as a divisor.
+     1                                  extern int_to_str
+     2                                  
+     3                                  section .data
+     4 00000000 0000000000408F40            precision dq 1000.0           ; Precision for multiplication
+     5 00000008 2E00                        decimal db ".", 0             ; Decimal point for float representation
+     6 0000000A C7C7DDD6FCD08340            float_value dq 634.1234567 
+     7                                  
+     8                                  section .bss
      9                                  
-    10 00000003 B90A000000                  mov     rcx, 10     ; Divisor for extracting digits (base 10)
-    11 00000008 4831D2                      xor     rdx, rdx    ; Clear rdx for division (quotient will go into rax)
-    12 0000000B 4889DE                      mov     rsi, rbx    ; rsi points to the buffer for storing digits.
-    13                                  
-    14                                      ; Check for zero case
-    15 0000000E 4883F800                    cmp     rax, 0
-    16 00000012 7411                        je      handle_zero
-    17                                  
-    18                                  convert_loop:
-    19                                      ; Divide the number by 10 to get the next digit.
-    20 00000014 48F7F1                      div     rcx          ; rax = rax / 10, rdx = rax % 10
-    21 00000017 80C230                      add     dl, '0'      ; Convert the digit in rdx to ASCII
-    22 0000001A 8816                        mov     [rsi], dl    ; Store the digit in the buffer
-    23 0000001C 48FFC6                      inc     rsi          ; Move buffer pointer
-    24                                  
-    25                                      ; Keep dividing, this will go until the number is zero
-    26 0000001F 4889D0                      mov     rax, rdx     ; Move remainder into rax for the next division
-    27 00000022 4831D2                      xor     rdx, rdx     ; Clear rdx to prepare for the next division
+    10                                  section .text
+    11                                  global ftoa
+    12                                  
+    13                                  ftoa:
+    14 00000000 F20F100425-                 movsd xmm0, [float_value]
+    14 00000005 [0A000000]         
+    15                                  
+    16                                  
+    17 00000009 F2480F2CC0                  cvttsd2si rax, xmm0           ; 634.91 --> 634 TRUNCATE
+    18 0000000E 4989C2                      mov r10, rax                  ; r10 = 634
+    19 00000011 E8(00000000)                call int_to_str               ; Convert 634 to string
+    20 00000016 4989C6                      mov r14, rax                  ; rdi points to the string returned by int_to_str YOU ARE
+    21                                                                    ; ACCIDENTIALLY PRINTING 6340000
+    22                                  
+    23 00000019 B801000000                  mov rax, 1                    ; SYS_write syscall number
+    24 0000001E BF01000000                  mov rdi, 1                    ; File descriptor 1 = STDOUT
+    25 00000023 4C89F6                      mov rsi, r14                  ; rsi points to the result string
+    26 00000026 BA0A000000                  mov rdx, 10                   ; Set a maximum number of characters to print (adjust as needed)
+    27 0000002B 0F05                        syscall
     28                                  
-    29                                      ; At this point the loop doesn't check if it's done, so it continues.
-    30                                  
-    31                                  handle_zero:
-    32                                      ; Special case for zero (since zero is not handled by the loop above).
-    33 00000025 C60630                      mov     byte [rsi], '0'
-    34 00000028 48FFC6                      inc     rsi
-    35                                  
-    36                                      ; Null-terminate the string.
-    37 0000002B C60600                      mov     byte [rsi], 0
-    38                                  
-    39                                      ; Restore registers and return.
-    40 0000002E 5A                          pop     rdx
-    41 0000002F 59                          pop     rcx
-    42 00000030 5B                          pop     rbx
-    43 00000031 C3                          ret
+    29 0000002D 4C8B1C25[00000000]          mov r11, [precision]          ; r11 = 1000
+    30 00000035 4D0FAFD3                    imul r10, r11                 ; r10 = 6340000                            
+    31                                  
+    32 00000039 F20F100C25-                 movsd xmm1, [precision]       ; xmm1 = 1000.0
+    32 0000003E [00000000]         
+    33 00000042 F20F10D0                    movsd xmm2, xmm0              ; xmm2 = 634.91
+    34 00000046 F20F59D1                    mulsd xmm2, xmm1              ; xmm2 = 6349100.0
+    35 0000004A F24C0F2CCA                  cvttsd2si r9, xmm2            ; r9 = 6349100
+    36                                  
+    37 0000004F 4D89C8                      mov r8, r9                    ; r8 = 6349100
+    38 00000052 4D29D0                      sub r8, r10                   ; r8 = 9100
+    39 00000055 4C89C0                      mov rax, r8                   ; rax = 9100
+    40 00000058 E8(00000000)                call int_to_str               ; Convert 9100 to string
+    41 0000005D 4989C4                      mov r12, rax
+    42                                  
+    43                                  
+    44 00000060 B801000000                  mov rax, 1                ; SYS_write syscall number
+    45 00000065 BF01000000                  mov rdi, 1                   ; File descriptor 1 = STDOUT
+    46 0000006A 48BE-                       mov rsi, decimal                   ; rsi points to the result string
+    46 0000006C [0800000000000000] 
+    47 00000074 BA01000000                  mov rdx, 1                   ; Set a maximum number of characters to print (adjust as needed)
+    48 00000079 0F05                        syscall
+    49                                  
+    50 0000007B B801000000                  mov rax, 1                ; SYS_write syscall number
+    51 00000080 BF01000000                  mov rdi, 1                   ; File descriptor 1 = STDOUT
+    52 00000085 4C89E6                      mov rsi, r12                   ; rsi points to the result string
+    53 00000088 BA0A000000                  mov rdx, 10                   ; Set a maximum number of characters to print (adjust as needed)
+    54 0000008D 0F05                        syscall
+    55                                  
+    56 0000008F C3                          ret

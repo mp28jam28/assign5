@@ -1,43 +1,56 @@
+extern int_to_str
+
+section .data
+    precision dq 1000.0           ; Precision for multiplication
+    decimal db ".", 0             ; Decimal point for float representation
+    float_value dq 634.1234567 
+
+section .bss
+
 section .text
 global ftoa
 
-; Converts an integer in rax to a null-terminated string in the buffer pointed by rbx.
 ftoa:
-    push    rbx         ; Save rbx (buffer pointer) because we will use it.
-    push    rcx         ; Save rcx as a counter.
-    push    rdx         ; Save rdx as a divisor.
+    movsd xmm0, [float_value]
 
-    mov     rcx, 10     ; Divisor for extracting digits (base 10)
-    xor     rdx, rdx    ; Clear rdx for division (quotient will go into rax)
-    mov     rsi, rbx    ; rsi points to the buffer for storing digits.
 
-    ; Check for zero case
-    cmp     rax, 0
-    je      handle_zero
+    cvttsd2si rax, xmm0           ; 634.91 --> 634 TRUNCATE
+    mov r10, rax                  ; r10 = 634
+    call int_to_str               ; Convert 634 to string
+    mov r14, rax                  ; rdi points to the string returned by int_to_str YOU ARE
+                                  ; ACCIDENTIALLY PRINTING 6340000
 
-convert_loop:
-    ; Divide the number by 10 to get the next digit.
-    div     rcx          ; rax = rax / 10, rdx = rax % 10
-    add     dl, '0'      ; Convert the digit in rdx to ASCII
-    mov     [rsi], dl    ; Store the digit in the buffer
-    inc     rsi          ; Move buffer pointer
+    mov rax, 1                    ; SYS_write syscall number
+    mov rdi, 1                    ; File descriptor 1 = STDOUT
+    mov rsi, r14                  ; rsi points to the result string
+    mov rdx, 10                   ; Set a maximum number of characters to print (adjust as needed)
+    syscall
 
-    ; Keep dividing, this will go until the number is zero
-    mov     rax, rdx     ; Move remainder into rax for the next division
-    xor     rdx, rdx     ; Clear rdx to prepare for the next division
+    mov r11, [precision]          ; r11 = 1000
+    imul r10, r11                 ; r10 = 6340000                            
 
-    ; At this point the loop doesn't check if it's done, so it continues.
+    movsd xmm1, [precision]       ; xmm1 = 1000.0
+    movsd xmm2, xmm0              ; xmm2 = 634.91
+    mulsd xmm2, xmm1              ; 6349100.0 * 1000
+    cvttsd2si r9, xmm2            ; r9 = 6349100
 
-handle_zero:
-    ; Special case for zero (since zero is not handled by the loop above).
-    mov     byte [rsi], '0'
-    inc     rsi
+    mov r8, r9                    ; r8 = 6349100
+    sub r8, r10                   ; r8 = 9100
+    mov rax, r8                   ; rax = 9100
+    call int_to_str               ; Convert 9100 to string
+    mov r12, rax
 
-    ; Null-terminate the string.
-    mov     byte [rsi], 0
 
-    ; Restore registers and return.
-    pop     rdx
-    pop     rcx
-    pop     rbx
+    mov rax, 1                ; SYS_write syscall number
+    mov rdi, 1                   ; File descriptor 1 = STDOUT
+    mov rsi, decimal                   ; rsi points to the result string
+    mov rdx, 1                   ; Set a maximum number of characters to print (adjust as needed)
+    syscall
+
+    mov rax, 1                ; SYS_write syscall number
+    mov rdi, 1                   ; File descriptor 1 = STDOUT
+    mov rsi, r12                   ; rsi points to the result string
+    mov rdx, 10                   ; Set a maximum number of characters to print (adjust as needed)
+    syscall
+
     ret
