@@ -99,13 +99,6 @@
   xrstor    [%1]
 %endmacro
 
-;Print out author information and calculate the area using Huron's formula
-%macro    authorInfo 0
-  mov    rax, 0
-  mov    rdi, author_info
-  call    printf
-%endmacro
-
 
 %macro GET_ARRAY_INPUT 3
     ; %1 = destination array (e.g., arr)
@@ -120,23 +113,49 @@
     cmp    r15, r14
     jge    .loop_end
 
-    push   qword 0              ; align stack for scanf (16-byte)
+.loop_input:
+    xor    rax, rax             ; clear rax
+    push   qword 0              ; align stack (16-byte)
     push   qword 0
 
-    mov    rax, 0               ; syscall: SYS_read (0)
+    mov    rax, 0               ; syscall: SYS_read
     mov    rdi, 0               ; STDIN
     mov    rsi, rsp             ; buffer (top of stack)
-    mov    rdx, %3              ; buffer size (e.g., 32)
+    mov    rdx, 32              ; buffer size (e.g., 32)
     syscall
 
-    ; Convert input string to double
-    mov    rax, 0
+    cmp    eax, -1
+    je     .ctrl_d
+
+
+    mov     rcx, 0
+.loop_trim:
+    mov     al, byte [rsp + rcx]
+    cmp     al, 0
+    je      .done_trim
+    cmp     al, 10             ; newline?
+    jne     .not_newline
+    mov     byte [rsp + rcx], 0
+    jmp     .done_trim
+.not_newline:
+    inc     rcx
+    jmp     .loop_trim
+.done_trim:
+
+    xor    rax, rax
+    mov    rdi, rsp
+    call   isfloat
+    cmp    rax, 0
+    je     .invalid_input
+
+    ; Convert input string to float
+    xor    rax, rax
     mov    rdi, rsp
     call   atof
     movsd  xmm15, xmm0
 
     ; Store into array
-    movsd  qword [r13 + r15*8], xmm15
+    movsd [r13 + r15*8], xmm15
 
     inc    r15
 
@@ -145,5 +164,26 @@
 
     jmp    .loop_start
 
+.invalid_input:
+    pop    rax
+    pop    rax
+
+    xor    rax, rax
+    mov    rax, 1               ; syscall: SYS_write
+    mov    rdi, 1               ; STDOUT
+    mov    rsi, prompt_input    ; prompt message address
+    mov    rdx, 27              ; length of prompt message
+    syscall
+
+    jmp    .loop_input          ; retry input for the same index
+
+.ctrl_d:
+    pop    rax
+    pop    rax
+
 .loop_end:
+    mov [arr], r13
+    mov    rax, r15   
 %endmacro
+
+

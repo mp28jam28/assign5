@@ -56,14 +56,5 @@ tesla:
 
 
 
-    ; ; Parameters
-    ; mov     r15, rdi         ; An array of 3 inputted numbers
-    ; ; use r8, r9, r10, r11, r12
-    ; ; It computes the resistance of the full circuit according to the equation 
-    ; ; R = 1/((1/R1) + ((1/R2) + (1/R3)).   The computed R is returned to the caller.
-
-    ; ; Find where the radix point is
-    ; ; TODO: Add checks for non-float using isfloat
-    ; xor     r14, r14            ; Index
 
 

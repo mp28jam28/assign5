@@ -35,6 +35,8 @@ compute_current db "Thank you.", 10, 10
 last_thanks db "amps", 10, 10
             db "Thank you "
 
+prompt_input    db "The last input was invalid and not entered into the array. Try again:", 10, 0
+
 float_format    db "%s", 0
 decimal db ".", 0             
 
@@ -113,18 +115,14 @@ edison:
     mov rsi, 3         ; count
     mov rdx, 32        ; string buffer size
     GET_ARRAY_INPUT rdi, rsi, rdx
+
     
 ; ; =========== CALL TESLA TO COMPUTE_RESISTANCE ==============
     mov rax, 0 
-    mov rdi, r13
+    mov rdi, arr
     mov rsi, 3
-    call tesla
-    ; movsd [total_resistance], xmm0
-    ; call ftoa
-
-    ; cvttsd2si rax, xmm0            ; convert float to integer (truncate)
-    call ftoa                ; convert float to inst
-
+    call tesla      
+    call ftoa                ; convert float to string
 
 
 ; =======================
@@ -133,27 +131,25 @@ edison:
     mov rdi, STDOUT     
     mov rsi, total_resist        
     mov rdx, 72
-    syscall 
+    syscall  
 
-    ; Print first half of decimal
-    ; mov rax, SYS_write                    ; SYS_write syscall number
-    ; mov rdi, STDOUT                    ; File descriptor 1 = STDOUT
-    ; mov rsi, r14                  ; rsi points to the result string
-    ; mov rdx, 5                   ; Set a maximum number of characters to print (adjust as needed)
-    ; syscall
+     mov rax, 1                    
+    mov rdi, 1                    
+    mov rsi, r14                  
+    mov rdx, 10                   
+    syscall
 
-    ; mov rax, SYS_write                    ; SYS_write syscall number
-    ; mov rdi, STDOUT                    ; File descriptor 1 = STDOUTT
-    ; mov rsi, decimal                  ; rsi points to the result string
-    ; mov rdx, 1                   ; Set a maximum number of characters to print (adjust as needed)
-    ; syscall
+    mov rax, 1                
+    mov rdi, 1                   
+    mov rsi, decimal                   
+    mov rdx, 1                   
+    syscall           
 
-    ; ; Print second half of decimal
-    ; mov rax, SYS_write                    ; SYS_write syscall number
-    ; mov rdi, STDOUT                    ; File descriptor 1 = STDOUT
-    ; mov rsi, r12        
-    ; mov rdx, 10
-    ; syscall 
+    mov rax, 1                
+    mov rdi, 1                   
+    mov rsi, r12                   
+    mov rdx, 10                   
+    syscall
 
 
 ; =========== PRINT TOTAL RESISTANCE ==============
