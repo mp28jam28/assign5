@@ -1,10 +1,3 @@
-SYS_read equ 0     ; syscall number for read
-SYS_write equ 1    ; syscall number for write
-SYS_exit equ 60
-
-string_size equ 48
-
-
 %include "get_res.inc"
 global tesla
 
@@ -47,7 +40,14 @@ tesla:
     divsd xmm3, xmm0 ; xmm3 now holds total resistance = 1/R
     movsd xmm0, xmm3
 
+    push qword 0
+    movsd [rsp], xmm0
+
     restoreNGPRs backup_storage
+
+    movsd xmm0, [rsp]
+    pop rax
+
     restoreGPRs
 
     ret

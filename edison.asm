@@ -133,23 +133,23 @@ edison:
     mov rdx, 72
     syscall  
 
-     mov rax, 1                    
-    mov rdi, 1                    
-    mov rsi, r14                  
-    mov rdx, 10                   
-    syscall
+    ; mov rax, 1                    
+    ; mov rdi, 1                    
+    ; mov rsi, r14                  
+    ; mov rdx, 10                   
+    ; syscall
 
-    mov rax, 1                
-    mov rdi, 1                   
-    mov rsi, decimal                   
-    mov rdx, 1                   
-    syscall           
+    ; mov rax, 1                
+    ; mov rdi, 1                   
+    ; mov rsi, decimal                   
+    ; mov rdx, 1                   
+    ; syscall           
 
-    mov rax, 1                
-    mov rdi, 1                   
-    mov rsi, r12                   
-    mov rdx, 10                   
-    syscall
+    ; mov rax, 1                
+    ; mov rdi, 1                   
+    ; mov rsi, r12                   
+    ; mov rdx, 10                   
+    ; syscall
 
 
 ; =========== PRINT TOTAL RESISTANCE ==============

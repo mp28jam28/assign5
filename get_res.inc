@@ -182,7 +182,6 @@
     pop    rax
 
 .loop_end:
-    mov [arr], r13
     mov    rax, r15   
 %endmacro
 

@@ -192,11 +192,10 @@
    182                              <1>     pop    rax
    183                              <1> 
    184                              <1> .loop_end:
-   185                              <1>     mov [arr], r13
-   186                              <1>     mov    rax, r15   
-   187                              <1> %endmacro
+   185                              <1>     mov    rax, r15   
+   186                              <1> %endmacro
+   187                              <1> 
    188                              <1> 
-   189                              <1> 
     11                                  extern isfloat
     12                                  extern atof
     13                                  extern tesla
@@ -466,57 +465,55 @@
    117 000001AD 58                  <1>  pop rax
    117                              <1> 
    117                              <1> .loop_end:
-   117 000001AE 4C892C25[60000000]  <1>  mov [arr], r13
-   117 000001B6 4C89F8              <1>  mov rax, r15
+   117 000001AE 4C89F8              <1>  mov rax, r15
    118                                  
    119                                      
    120                                  ; ; =========== CALL TESLA TO COMPUTE_RESISTANCE ==============
-   121 000001B9 B800000000                  mov rax, 0 
-   122 000001BE 48BF-                       mov rdi, arr
-   122 000001C0 [6000000000000000] 
-   123 000001C8 BE03000000                  mov rsi, 3
-   124 000001CD E8(00000000)                call tesla      
-   125 000001D2 E8(00000000)                call ftoa                ; convert float to string
+   121 000001B1 B800000000                  mov rax, 0 
+   122 000001B6 48BF-                       mov rdi, arr
+   122 000001B8 [6000000000000000] 
+   123 000001C0 BE03000000                  mov rsi, 3
+   124 000001C5 E8(00000000)                call tesla      
+   125 000001CA E8(00000000)                call ftoa                ; convert float to string
    126                                  
    127                                  
    128                                  ; =======================
    129                                      ; Print total resistance
-   130 000001D7 B801000000                  mov rax, SYS_write  
-   131 000001DC BF01000000                  mov rdi, STDOUT     
-   132 000001E1 48BE-                       mov rsi, total_resist        
-   132 000001E3 [E900000000000000] 
-   133 000001EB BA48000000                  mov rdx, 72
-   134 000001F0 0F05                        syscall  
+   130 000001CF B801000000                  mov rax, SYS_write  
+   131 000001D4 BF01000000                  mov rdi, STDOUT     
+   132 000001D9 48BE-                       mov rsi, total_resist        
+   132 000001DB [E900000000000000] 
+   133 000001E3 BA48000000                  mov rdx, 72
+   134 000001E8 0F05                        syscall  
    135                                  
-   136 000001F2 B801000000                   mov rax, 1                    
-   137 000001F7 BF01000000                  mov rdi, 1                    
-   138 000001FC 4C89F6                      mov rsi, r14                  
-   139 000001FF BA0A000000                  mov rdx, 10                   
-   140 00000204 0F05                        syscall
+   136                                      ; mov rax, 1                    
+   137                                      ; mov rdi, 1                    
+   138                                      ; mov rsi, r14                  
+   139                                      ; mov rdx, 10                   
+   140                                      ; syscall
    141                                  
-   142 00000206 B801000000                  mov rax, 1                
-   143 0000020B BF01000000                  mov rdi, 1                   
-   144 00000210 48BE-                       mov rsi, decimal                   
-   144 00000212 [3502000000000000] 
-   145 0000021A BA01000000                  mov rdx, 1                   
-   146 0000021F 0F05                        syscall           
+   142                                      ; mov rax, 1                
+   143                                      ; mov rdi, 1                   
+   144                                      ; mov rsi, decimal                   
+   145                                      ; mov rdx, 1                   
+   146                                      ; syscall           
    147                                  
-   148 00000221 B801000000                  mov rax, 1                
-   149 00000226 BF01000000                  mov rdi, 1                   
-   150 0000022B 4C89E6                      mov rsi, r12                   
-   151 0000022E BA0A000000                  mov rdx, 10                   
-   152 00000233 0F05                        syscall
+   148                                      ; mov rax, 1                
+   149                                      ; mov rdi, 1                   
+   150                                      ; mov rsi, r12                   
+   151                                      ; mov rdx, 10                   
+   152                                      ; syscall
    153                                  
    154                                  
    155                                  ; =========== PRINT TOTAL RESISTANCE ==============
    156                                      
    157                                  
-   158 00000235 B801000000                  mov rax, SYS_write  
-   159 0000023A BF01000000                  mov rdi, STDOUT     
-   160 0000023F 48BE-                       mov rsi, total_resistance       
-   160 00000241 [7800000000000000] 
-   161 00000249 BA19000000                  mov rdx, 25
-   162 0000024E 0F05                        syscall 
+   158 000001EA B801000000                  mov rax, SYS_write  
+   159 000001EF BF01000000                  mov rdi, STDOUT     
+   160 000001F4 48BE-                       mov rsi, total_resistance       
+   160 000001F6 [7800000000000000] 
+   161 000001FE BA19000000                  mov rdx, 25
+   162 00000203 0F05                        syscall 
    163                                  
    164                                  
    165                                  ;     ; Print prompt for user to enter the EMF
@@ -553,19 +550,19 @@
    196                                      ; syscall 
    197                                  ; =========== PRINT REST OF THE MESSAGE ==============
    198                                      restoreGPRs
-   198 00000250 9D                  <1>  popf
-   198 00000251 415F                <1>  pop r15
-   198 00000253 415E                <1>  pop r14
-   198 00000255 415D                <1>  pop r13
-   198 00000257 415C                <1>  pop r12
-   198 00000259 415B                <1>  pop r11
-   198 0000025B 415A                <1>  pop r10
-   198 0000025D 4159                <1>  pop r9
-   198 0000025F 4158                <1>  pop r8
-   198 00000261 5E                  <1>  pop rsi
-   198 00000262 5F                  <1>  pop rdi
-   198 00000263 5A                  <1>  pop rdx
-   198 00000264 59                  <1>  pop rcx
-   198 00000265 5B                  <1>  pop rbx
-   198 00000266 5D                  <1>  pop rbp
-   199 00000267 C3                          ret
+   198 00000205 9D                  <1>  popf
+   198 00000206 415F                <1>  pop r15
+   198 00000208 415E                <1>  pop r14
+   198 0000020A 415D                <1>  pop r13
+   198 0000020C 415C                <1>  pop r12
+   198 0000020E 415B                <1>  pop r11
+   198 00000210 415A                <1>  pop r10
+   198 00000212 4159                <1>  pop r9
+   198 00000214 4158                <1>  pop r8
+   198 00000216 5E                  <1>  pop rsi
+   198 00000217 5F                  <1>  pop rdi
+   198 00000218 5A                  <1>  pop rdx
+   198 00000219 59                  <1>  pop rcx
+   198 0000021A 5B                  <1>  pop rbx
+   198 0000021B 5D                  <1>  pop rbp
+   199 0000021C C3                          ret

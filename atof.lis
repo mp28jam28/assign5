@@ -185,148 +185,133 @@
    182                              <1>     pop    rax
    183                              <1> 
    184                              <1> .loop_end:
-   185                              <1>     mov [arr], r13
-   186                              <1>     mov    rax, r15   
-   187                              <1> %endmacro
+   185                              <1>     mov    rax, r15   
+   186                              <1> %endmacro
+   187                              <1> 
    188                              <1> 
-   189                              <1> 
-     4                                  section .data
-     5 00000000 0000000000000080            neg_mask dq 0x8000000000000000
-     6                                  
-     7                                  section .bss
-     8                                      align 64
-     9 00000000 <res 00000340>              storedata resb 832
-    10                                  
-    11                                  section .text
-    12                                  atof:
-    13                                      ; Back up
-    14                                      backupGPRs
-    14 00000000 55                  <1>  push rbp
-    14 00000001 4889E5              <1>  mov rbp, rsp
-    14 00000004 53                  <1>  push rbx
-    14 00000005 51                  <1>  push rcx
-    14 00000006 52                  <1>  push rdx
-    14 00000007 56                  <1>  push rsi
-    14 00000008 57                  <1>  push rdi
-    14 00000009 4150                <1>  push r8
-    14 0000000B 4151                <1>  push r9
-    14 0000000D 4152                <1>  push r10
-    14 0000000F 4153                <1>  push r11
-    14 00000011 4154                <1>  push r12
-    14 00000013 4155                <1>  push r13
-    14 00000015 4156                <1>  push r14
-    14 00000017 4157                <1>  push r15
-    14 00000019 9C                  <1>  pushf
-    15                                  
-    16 0000001A B807000000                  mov     rax, 7
-    17 0000001F BA00000000                  mov     rdx, 0
-    18 00000024 0FAE2425[00000000]          xsave   [storedata]    
-    19                                  
-    20                                      ; Parameters
-    21 0000002C 4989FF                      mov     r15, rdi            ; An array of char with null termination expected
-    22                                  
-    23                                      ; Find where the radix point is
-    24                                      ; TODO: Add checks for non-float using isfloat
-    25 0000002F 4D31F6                      xor     r14, r14            ; Index for the radix point
-    26                                  find_radix_loop:
-    27 00000032 43803C372E                  cmp     byte[r15 + r14], '.'
-    28 00000037 7405                        je      found_radix_point
+     4                                  
+     5                                  section .data
+     6 00000000 0000000000000080            neg_mask dq 0x8000000000000000
+     7                                  
+     8                                  section .bss
+     9                                      align 64
+    10 00000000 <res 00000340>              storedata resb 832
+    11                                  
+    12                                  section .text
+    13                                  
+    14                                  atof:
+    15                                      ; Save registers and SIMD state
+    16                                      backupGPRs
+    16 00000000 55                  <1>  push rbp
+    16 00000001 4889E5              <1>  mov rbp, rsp
+    16 00000004 53                  <1>  push rbx
+    16 00000005 51                  <1>  push rcx
+    16 00000006 52                  <1>  push rdx
+    16 00000007 56                  <1>  push rsi
+    16 00000008 57                  <1>  push rdi
+    16 00000009 4150                <1>  push r8
+    16 0000000B 4151                <1>  push r9
+    16 0000000D 4152                <1>  push r10
+    16 0000000F 4153                <1>  push r11
+    16 00000011 4154                <1>  push r12
+    16 00000013 4155                <1>  push r13
+    16 00000015 4156                <1>  push r14
+    16 00000017 4157                <1>  push r15
+    16 00000019 9C                  <1>  pushf
+    17 0000001A B807000000                  mov     rax, 7
+    18 0000001F BA00000000                  mov     rdx, 0
+    19 00000024 0FAE2425[00000000]          xsave   [storedata]
+    20                                  
+    21 0000002C 4989FF                      mov     r15, rdi            ; r15 = pointer to input string
+    22 0000002F 4D31F6                      xor     r14, r14            ; r14 = index to find decimal point
+    23                                  
+    24                                  search_dot:
+    25 00000032 43803C372E                  cmp     byte [r15 + r14], '.'
+    26 00000037 7405                        je      dot_found
+    27 00000039 49FFC6                      inc     r14
+    28 0000003C EBF4                        jmp     search_dot
     29                                  
-    30 00000039 49FFC6                      inc     r14
-    31 0000003C EBF4                        jmp     find_radix_loop
-    32                                  
-    33                                  found_radix_point:
-    34                                      ; Set up registers for integer part parsing
-    35 0000003E 4D31ED                      xor     r13, r13            ; Integer total
-    36 00000041 41BC01000000                mov     r12, 1              ; Integer multiplier 1, 10, 100, 1000,...
-    37 00000047 4D89F3                      mov     r11, r14            ; Make a copy of the radix point
-    38 0000004A 49FFCB                      dec     r11                 
-    39 0000004D 4D31D2                      xor     r10, r10            ; Flag 0 = positive, 1 = negative
-    40                                  
-    41                                  parse_integer:
-    42 00000050 438A041F                    mov     al, byte[r15 + r11]
-    43 00000054 3C2B                        cmp     al, '+'
-    44 00000056 7422                        je      finish_parse_integer
-    45 00000058 3C2D                        cmp     al, '-'
-    46 0000005A 7418                        je      parse_integer_negative
-    47                                  
-    48                                      ; Convert the ASCII character to in integer and add it to the total
-    49 0000005C 2C30                        sub     al, '0'             ; Subtract 48 from the ASCII to get integer value
-    50 0000005E 490FAFC4                    imul    rax, r12            ; Multiply the integer value with 1, 10, 100, 1000,...
-    51 00000062 4901C5                      add     r13, rax            ; Add the multiplied value to the total
-    52 00000065 4D6BE40A                    imul    r12, 10             ; Increase the multiplier exponentially by 10
-    53                                  
-    54 00000069 49FFCB                      dec     r11                 ; Move the index from the radix point toward the front of the string
-    55 0000006C 4983FB00                    cmp     r11, 0              ; Keep looping until all integer part are parsed
-    56 00000070 7DDE                        jge     parse_integer    
-    57 00000072 EB06                        jmp     finish_parse_integer
-    58                                  
-    59                                  parse_integer_negative:
-    60 00000074 41BA01000000                mov     r10, 1              ; Set r10 to 1 to flag the number as negative
+    30                                  dot_found:
+    31 0000003E 4D31ED                      xor     r13, r13            ; r13 = parsed integer value
+    32 00000041 41BC01000000                mov     r12, 1              ; r12 = multiplier for digit place
+    33 00000047 4D89F3                      mov     r11, r14            ; r11 = index before the dot
+    34 0000004A 49FFCB                      dec     r11
+    35 0000004D 4D31D2                      xor     r10, r10            ; r10 = flag for negative number
+    36                                  
+    37                                  parse_whole:
+    38 00000050 438A041F                    mov     al, byte [r15 + r11]
+    39 00000054 3C2B                        cmp     al, '+'
+    40 00000056 7422                        je      end_whole
+    41 00000058 3C2D                        cmp     al, '-'
+    42 0000005A 7418                        je      set_negative
+    43                                  
+    44 0000005C 2C30                        sub     al, '0'
+    45 0000005E 490FAFC4                    imul    rax, r12
+    46 00000062 4901C5                      add     r13, rax
+    47 00000065 4D6BE40A                    imul    r12, 10
+    48 00000069 49FFCB                      dec     r11
+    49 0000006C 4983FB00                    cmp     r11, 0
+    50 00000070 7DDE                        jge     parse_whole
+    51 00000072 EB06                        jmp     end_whole
+    52                                  
+    53                                  set_negative:
+    54 00000074 41BA01000000                mov     r10, 1
+    55                                  
+    56                                  end_whole:
+    57 0000007A B80A000000                  mov     rax, 10
+    58 0000007F F24C0F2AD8                  cvtsi2sd xmm11, rax         ; xmm11 = 10.0
+    59 00000084 66450FEFED                  pxor    xmm13, xmm13        ; xmm13 = decimal accumulator
+    60 00000089 F2450F10E3                  movsd   xmm12, xmm11        ; xmm12 = initial divisor (10.0)
     61                                  
-    62                                  finish_parse_integer:
-    63                                      ; Set up values for decimal part parsing  
-    64 0000007A B80A000000                  mov     rax, 10             ; Load 10 into rax
-    65 0000007F F24C0F2AD8                  cvtsi2sd xmm11, rax         ; Load 10.0 into xmm11   
-    66 00000084 66450F57ED                  xorpd   xmm13, xmm13        ; Decimal total
-    67 00000089 F2450F10E3                  movsd   xmm12,xmm11         ; Decimal divisor 10, 100, 1000,...
-    68 0000008E 49FFC6                      inc     r14
-    69                                  
-    70                                  parse_decimal:
-    71 00000091 438A0437                    mov     al, byte [r15 + r14]
-    72 00000095 2C30                        sub     al, '0'             ; Subtract 48 from the ASCII to get integer value
-    73                                  
-    74                                      ; Convert the ASCII character to decimal value
-    75 00000097 F2480F2AC0                  cvtsi2sd xmm0, rax          ; Load the integer value into an xmm register for division
-    76 0000009C F2410F5EC4                  divsd   xmm0, xmm12         ; Divide the integer value by 10, 100, 1000,...
-    77 000000A1 F2440F58E8                  addsd   xmm13, xmm0         ; Add the decimal value to the total
-    78 000000A6 F2450F59E3                  mulsd   xmm12, xmm11        ; Increase the decimal divisor exponentially by 10
-    79                                  
-    80 000000AB 49FFC6                      inc     r14                 ; Keep looping until null termination is found.
-    81 000000AE 43803C3700                  cmp     byte[r15 + r14], 0
-    82 000000B3 75DC                        jne     parse_decimal
-    83                                  
-    84                                      ; Add the parsed integer and decimal part together
-    85 000000B5 F2490F2AC5                  cvtsi2sd xmm0, r13
-    86 000000BA F2410F58C5                  addsd   xmm0, xmm13
-    87                                  
-    88                                      ; Check the negative flag 0 = positive, 1 = negative
-    89 000000BF 4983FA00                    cmp     r10, 0
-    90 000000C3 740D                        je      return
-    91                                  
-    92                                      ; Negate the number of the flag is equal to 1
-    93 000000C5 F20F100C25-                 movsd xmm1, [neg_mask]      ; Load the negation mask into xmm1
-    93 000000CA [00000000]         
-    94 000000CE 660F57C1                    xorpd xmm0, xmm1 
+    62 0000008E 49FFC6                      inc     r14                 ; Move past the '.'
+    63                                  
+    64                                  parse_frac:
+    65 00000091 438A0437                    mov     al, byte [r15 + r14]
+    66 00000095 2C30                        sub     al, '0'
+    67 00000097 F2480F2AC0                  cvtsi2sd xmm0, rax
+    68 0000009C F2410F5EC4                  divsd   xmm0, xmm12
+    69 000000A1 F2440F58E8                  addsd   xmm13, xmm0
+    70 000000A6 F2450F59E3                  mulsd   xmm12, xmm11
+    71 000000AB 49FFC6                      inc     r14
+    72 000000AE 43803C3700                  cmp     byte [r15 + r14], 0
+    73 000000B3 75DC                        jne     parse_frac
+    74                                  
+    75 000000B5 F2490F2AC5                  cvtsi2sd xmm0, r13
+    76 000000BA F2410F58C5                  addsd   xmm0, xmm13         ; xmm0 = full float value
+    77                                  
+    78 000000BF 4983FA00                    cmp     r10, 0
+    79 000000C3 740C                        je      finish
+    80                                  
+    81                                      ; If negative, apply negation by flipping sign bit
+    82 000000C5 F20F100C25-                 movsd   xmm1, [neg_mask]
+    82 000000CA [00000000]         
+    83 000000CE 0F57C1                      xorps   xmm0, xmm1
+    84                                  
+    85                                  finish:
+    86 000000D1 6A00                        push    qword 0
+    87 000000D3 F20F110424                  movsd   [rsp], xmm0
+    88                                  
+    89                                      ; Restore SIMD state and registers
+    90 000000D8 B807000000                  mov     rax, 7
+    91 000000DD BA00000000                  mov     rdx, 0
+    92 000000E2 0FAE2C25[00000000]          xrstor  [storedata]
+    93 000000EA F20F100424                  movsd   xmm0, [rsp]
+    94 000000EF 58                          pop     rax
     95                                  
-    96                                  return:
-    97                                      ; Return
-    98 000000D2 6A00                        push    qword 0
-    99 000000D4 F20F110424                  movsd   [rsp], xmm0
-   100                                  
-   101 000000D9 B807000000                  mov     rax, 7
-   102 000000DE BA00000000                  mov     rdx, 0
-   103 000000E3 0FAE2C25[00000000]          xrstor  [storedata]
-   104                                  
-   105 000000EB F20F100424                  movsd   xmm0, [rsp]
-   106 000000F0 58                          pop     rax
-   107                                  
-   108                                      ; Restore
-   109                                      restoreGPRs
-   109 000000F1 9D                  <1>  popf
-   109 000000F2 415F                <1>  pop r15
-   109 000000F4 415E                <1>  pop r14
-   109 000000F6 415D                <1>  pop r13
-   109 000000F8 415C                <1>  pop r12
-   109 000000FA 415B                <1>  pop r11
-   109 000000FC 415A                <1>  pop r10
-   109 000000FE 4159                <1>  pop r9
-   109 00000100 4158                <1>  pop r8
-   109 00000102 5E                  <1>  pop rsi
-   109 00000103 5F                  <1>  pop rdi
-   109 00000104 5A                  <1>  pop rdx
-   109 00000105 59                  <1>  pop rcx
-   109 00000106 5B                  <1>  pop rbx
-   109 00000107 5D                  <1>  pop rbp
-   110                                  
-   111 00000108 C3                          ret
+    96                                      restoreGPRs
+    96 000000F0 9D                  <1>  popf
+    96 000000F1 415F                <1>  pop r15
+    96 000000F3 415E                <1>  pop r14
+    96 000000F5 415D                <1>  pop r13
+    96 000000F7 415C                <1>  pop r12
+    96 000000F9 415B                <1>  pop r11
+    96 000000FB 415A                <1>  pop r10
+    96 000000FD 4159                <1>  pop r9
+    96 000000FF 4158                <1>  pop r8
+    96 00000101 5E                  <1>  pop rsi
+    96 00000102 5F                  <1>  pop rdi
+    96 00000103 5A                  <1>  pop rdx
+    96 00000104 59                  <1>  pop rcx
+    96 00000105 5B                  <1>  pop rbx
+    96 00000106 5D                  <1>  pop rbp
+    97 00000107 C3                          ret
