@@ -1,10 +1,243 @@
      1                                  extern int_to_str
-     2                                  
-     3                                  section .data
-     4 00000000 0000000084D79741            precision dq 100000000.0              ; For floating-point math
-     5 00000008 00E1F50500000000            precision_int dq 100000000            ; Integer version for integer math
-     6 00000010 2E00                        decimal db ".", 0
-     7 00000012 E17A14AE47D78340            float_value dq 634.91
+     2                                  %include "get_res.inc"
+     1                              <1> ;****************************************************************************************************************************
+     2                              <1> ; Program name: Non-deterministic Random Numbers
+     3                              <1> ; This program generates up to 100 random numbers using the non-deterministic random number generator found inside modern 
+     4                              <1> ; x86 microprocessors. The generated numbers are then normalized to the range 1.0 to 2.0 and sorted. 
+     5                              <1> ; Copyright (C) 2025 Michelle Pham
+     6                              <1> ;                                                                                                                         
+     7                              <1> ; This file is part of the software program "Non-deterministic Random Numbers".                                    
+     8                              <1> ; "Non-deterministic Random Numbers" is free software: you can redistribute it and/or modify it under the terms of    
+     9                              <1> ; the GNU General Public License version 3 as published by the Free Software Foundation.                                  
+    10                              <1> ; "Non-deterministic Random Numbers" is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;     
+    11                              <1> ; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public     
+    12                              <1> ; License for more details. A copy of the GNU General Public License v3 is available here: <https://www.gnu.org/licenses/>.
+    13                              <1> ;****************************************************************************************************************************
+    14                              <1> 
+    15                              <1> ;================================================================================================================================
+    16                              <1> ;
+    17                              <1> ; Author Information
+    18                              <1> ;  Name: Michelle Pham
+    19                              <1> ;  Email: mp28jam@csu.fullerton.edu
+    20                              <1> ;  CWID: 867434789
+    21                              <1> ;  Course: CPSC 240-03
+    22                              <1> ;
+    23                              <1> ; Program Information
+    24                              <1> ;  Name: Non-deterministic Random Numbers
+    25                              <1> ;  Programming Languages: x86-64 Assembly, C++
+    26                              <1> ;  Effective Date: March 25, 2025
+    27                              <1> ;  Latest Update: March 25, 2025
+    28                              <1> ;  Date open source license added: March 25, 2025
+    29                              <1> ;  Files: main.cpp, executive.asm, fill_random_array.asm, isnan.asm
+    30                              <1> ;  Status: Incomplete
+    31                              <1> ;  References Consulted: Ed Jorgensen, "x86-64 Assembly Language Programming with Ubuntu"
+    32                              <1> ;  Future Upgrades: Implement advanced sorting algorithms and parallel number generation.
+    33                              <1> ;
+    34                              <1> ; Purpose
+    35                              <1> ;  This program generates up to 100 random numbers using the non-deterministic random number generator (RDRAND) in modern x86 
+    36                              <1> ;  microprocessors. The generated numbers are normalized to the range 1.0 to 2.0 and then sorted to produce an ordered list. The 
+    37                              <1> ;  goal is to practice techniques for handling random number generation, normalization, and sorting in x86-64 assembly.
+    38                              <1> ;
+    39                              <1> ; Development Information
+    40                              <1> ;  OS: Ubuntu 22.04.4 LTS
+    41                              <1> ;  Text Editor: Visual Studio Code
+    42                              <1> ;  Tools: NASM, G++ compiler, GDB
+    43                              <1> ;
+    44                              <1> ; Current File Information
+    45                              <1> ;  Name: utilities.inc
+    46                              <1> ;  Language: x86-64 Assembly with Intel syntax
+    47                              <1> ;  An include file to store macros for this program.
+    48                              <1> ;
+    49                              <1> ;================================================================================================================================
+    50                              <1> 
+    51                              <1> ;Back-up GPRs
+    52                              <1> %macro    backupGPRs 0
+    53                              <1>   push    rbp
+    54                              <1>   mov    rbp, rsp
+    55                              <1>   push    rbx
+    56                              <1>   push    rcx
+    57                              <1>   push    rdx
+    58                              <1>   push    rsi
+    59                              <1>   push    rdi
+    60                              <1>   push    r8
+    61                              <1>   push    r9
+    62                              <1>   push    r10
+    63                              <1>   push    r11
+    64                              <1>   push    r12
+    65                              <1>   push    r13
+    66                              <1>   push    r14
+    67                              <1>   push    r15
+    68                              <1>   pushf
+    69                              <1> %endmacro
+    70                              <1> 
+    71                              <1> ;Restore GPRs
+    72                              <1> %macro    restoreGPRs 0
+    73                              <1>   popf
+    74                              <1>   pop    r15
+    75                              <1>   pop    r14
+    76                              <1>   pop    r13
+    77                              <1>   pop    r12
+    78                              <1>   pop    r11
+    79                              <1>   pop    r10
+    80                              <1>   pop    r9
+    81                              <1>   pop    r8
+    82                              <1>   pop    rsi
+    83                              <1>   pop    rdi
+    84                              <1>   pop    rdx
+    85                              <1>   pop    rcx
+    86                              <1>   pop    rbx
+    87                              <1>   pop    rbp
+    88                              <1> %endmacro
+    89                              <1> 
+    90                              <1> %macro    backupNGPRs 1
+    91                              <1>   mov    rax, 7
+    92                              <1>   mov    rdx, 0
+    93                              <1>   xsave    [%1]
+    94                              <1> %endmacro
+    95                              <1> 
+    96                              <1> %macro    restoreNGPRs 1
+    97                              <1>   mov    rax, 7
+    98                              <1>   mov    rdx, 0
+    99                              <1>   xrstor    [%1]
+   100                              <1> %endmacro
+   101                              <1> 
+   102                              <1> 
+   103                              <1> %macro GET_INPUT 3
+   104                              <1>     ; %1 = destination array (e.g., arr)
+   105                              <1>     ; %2 = number of elements (e.g., 3)
+   106                              <1>     ; %3 = string buffer size (e.g., 32)
+   107                              <1> 
+   108                              <1>     xor    r15, r15             ; r15 = index
+   109                              <1>     mov    r13, %1              ; r13 = base address of array
+   110                              <1>     mov    r14, %2              ; r14 = number of elements
+   111                              <1> 
+   112                              <1> .loop_start:
+   113                              <1>     cmp    r15, r14
+   114                              <1>     jge    .loop_end
+   115                              <1> 
+   116                              <1> .loop_input:
+   117                              <1>     xor    rax, rax             ; clear rax
+   118                              <1>     push   qword 0              ; align stack (16-byte)
+   119                              <1>     push   qword 0
+   120                              <1> 
+   121                              <1>     mov    rax, 0               ; syscall: SYS_read
+   122                              <1>     mov    rdi, 0               ; STDIN
+   123                              <1>     mov    rsi, rsp             ; buffer (top of stack)
+   124                              <1>     mov    rdx, 32              ; buffer size (e.g., 32)
+   125                              <1>     syscall
+   126                              <1> 
+   127                              <1>     cmp    eax, -1
+   128                              <1>     je     .ctrl_d
+   129                              <1> 
+   130                              <1> 
+   131                              <1>     mov     rcx, 0
+   132                              <1> .loop_trim:
+   133                              <1>     mov     al, byte [rsp + rcx]
+   134                              <1>     cmp     al, 0
+   135                              <1>     je      .done_trim
+   136                              <1>     cmp     al, 10             ; newline?
+   137                              <1>     jne     .not_newline
+   138                              <1>     mov     byte [rsp + rcx], 0
+   139                              <1>     jmp     .done_trim
+   140                              <1> .not_newline:
+   141                              <1>     inc     rcx
+   142                              <1>     jmp     .loop_trim
+   143                              <1> .done_trim:
+   144                              <1> 
+   145                              <1>     xor    rax, rax
+   146                              <1>     mov    rdi, rsp
+   147                              <1>     call   isfloat
+   148                              <1>     cmp    rax, 0
+   149                              <1>     je     .invalid_input
+   150                              <1> 
+   151                              <1>     ; Convert input string to float
+   152                              <1>     xor    rax, rax
+   153                              <1>     mov    rdi, rsp
+   154                              <1>     call   atof
+   155                              <1>     movsd  xmm15, xmm0
+   156                              <1> 
+   157                              <1>     ; Store into array
+   158                              <1>     movsd [r13 + r15*8], xmm15
+   159                              <1> 
+   160                              <1>     inc    r15
+   161                              <1> 
+   162                              <1>     pop    rax
+   163                              <1>     pop    rax
+   164                              <1> 
+   165                              <1>     jmp    .loop_start
+   166                              <1> 
+   167                              <1> .invalid_input:
+   168                              <1>     pop    rax
+   169                              <1>     pop    rax
+   170                              <1> 
+   171                              <1>     xor    rax, rax
+   172                              <1>     mov    rax, 1               ; syscall: SYS_write
+   173                              <1>     mov    rdi, 1               ; STDOUT
+   174                              <1>     mov    rsi, prompt_input    ; prompt message address
+   175                              <1>     mov    rdx, 27              ; length of prompt message
+   176                              <1>     syscall
+   177                              <1> 
+   178                              <1>     jmp    .loop_input          ; retry input for the same index
+   179                              <1> 
+   180                              <1> .ctrl_d:
+   181                              <1>     pop    rax
+   182                              <1>     pop    rax
+   183                              <1> 
+   184                              <1> .loop_end:
+   185                              <1>     mov    rax, r15   
+   186                              <1> %endmacro
+   187                              <1> %macro FTOA_PRINT 0
+   188                              <1>     ; Save original float value
+   189                              <1>     movsd xmm5, xmm0
+   190                              <1> 
+   191                              <1>     ; Extract integer part from float
+   192                              <1>     cvttsd2si rax, xmm0
+   193                              <1>     mov r10, rax
+   194                              <1> 
+   195                              <1>     ; Convert integer part to string and print
+   196                              <1>     call int_to_str
+   197                              <1>     mov rsi, rax
+   198                              <1>     mov rax, 1
+   199                              <1>     mov rdi, 1
+   200                              <1>     mov rdx, 10
+   201                              <1>     syscall
+   202                              <1> 
+   203                              <1>     ; Multiply to shift decimal portion
+   204                              <1>     movsd xmm1, [precision]
+   205                              <1>     movsd xmm2, xmm0
+   206                              <1>     mulsd xmm2, xmm1
+   207                              <1>     cvttsd2si r9, xmm2
+   208                              <1> 
+   209                              <1>     ; Calculate scaled integer part for subtraction
+   210                              <1>     mov r11, [precision_int]
+   211                              <1>     imul r10, r11
+   212                              <1> 
+   213                              <1>     ; Extract decimal digits
+   214                              <1>     mov r8, r9
+   215                              <1>     sub r8, r10
+   216                              <1>     mov rax, r8
+   217                              <1>     call int_to_str
+   218                              <1>     mov r12, rax
+   219                              <1> 
+   220                              <1>     ; Print the decimal point
+   221                              <1>     mov rax, 1
+   222                              <1>     mov rdi, 1
+   223                              <1>     mov rsi, decimal
+   224                              <1>     mov rdx, 1
+   225                              <1>     syscall
+   226                              <1> 
+   227                              <1>     ; Print right-hand side of the decimal
+   228                              <1>     mov rax, 1
+   229                              <1>     mov rdi, 1
+   230                              <1>     mov rsi, r12
+   231                              <1>     mov rdx, 10
+   232                              <1>     syscall
+   233                              <1> %endmacro
+     3                                  
+     4                                  section .data
+     5 00000000 0000000084D79741            precision dq 100000000.0              ; For floating-point math
+     6 00000008 00E1F50500000000            precision_int dq 100000000            ; Integer version for integer math
+     7 00000010 2E00                        decimal db ".", 0
      8                                  
      9                                  section .bss
     10                                  
@@ -12,47 +245,54 @@
     12                                  global ftoa
     13                                  
     14                                  ftoa:
-    15                                      ; movsd xmm0, [float_value]  
-    16 00000000 F2480F2CC0                  cvttsd2si rax, xmm0           ; 634.91 --> 634 TRUNCATE
-    17 00000005 4989C2                      mov r10, rax                  ; LHS of decimal = r10 
-    18 00000008 E8(00000000)                call int_to_str               ; Convert LHS to string
-    19                                      ; mov r14, rax     
-    20                                  
-    21 0000000D 4889C6                      mov rsi, rax                 
-    22 00000010 B801000000                  mov rax, 1                    
-    23 00000015 BF01000000                  mov rdi, 1                    
-    24 0000001A BA0A000000                  mov rdx, 10                   
-    25 0000001F 0F05                        syscall
-    26                                              
-    27                                  
-    28 00000021 F20F100C25-                 movsd xmm1, [precision]       ; xmm1 = 1000.0
-    28 00000026 [00000000]         
-    29 0000002A F20F10D0                    movsd xmm2, xmm0              ; xmm2 = 634.91
-    30 0000002E F20F59D1                    mulsd xmm2, xmm1              ; 634.91 * 1000 = 634910
-    31 00000032 F24C0F2CCA                  cvttsd2si r9, xmm2            ; r9 = 634910
-    32                                  
-    33 00000037 4C8B1C25[08000000]          mov r11, [precision_int]          ; r11 = 1000
-    34 0000003F 4D0FAFD3                    imul r10, r11                 ; 634 * 1000 = 634000
-    35                                  
-    36 00000043 4D89C8                      mov r8, r9                    ; r8 = 634910
-    37 00000046 4D29D0                      sub r8, r10                   ; 634910 - 634000 = 910 Subtract to get RHS of decimal
-    38 00000049 4C89C0                      mov rax, r8                   ; rax = 9100
-    39 0000004C E8(00000000)                call int_to_str               ; Convert 9100 to string
-    40 00000051 4989C4                      mov r12, rax
+    15                                      ; Save the float double value for future use 
+    16 00000000 F20F10E8                    movsd xmm5, xmm0
+    17                                  
+    18                                      ; Extract integer part from float by truncating (LHS)
+    19 00000004 F2480F2CC0                  cvttsd2si rax, xmm0           
+    20 00000009 4989C2                      mov r10, rax  
+    21                                  
+    22                                      ; Convert Integer part to string & print
+    23 0000000C E8(00000000)                call int_to_str            
+    24                                  
+    25                                      ; Print the left side of the decimal   
+    26 00000011 4889C6                      mov rsi, rax                 
+    27 00000014 B801000000                  mov rax, 1                    
+    28 00000019 BF01000000                  mov rdi, 1                    
+    29 0000001E BA0A000000                  mov rdx, 10                   
+    30 00000023 0F05                        syscall
+    31                                  
+    32                                      ; Multiply float to isolate decimal part
+    33 00000025 F20F100C25-                 movsd xmm1, [precision]       ; xmm1 = 1000.0
+    33 0000002A [00000000]         
+    34 0000002E F20F10D0                    movsd xmm2, xmm0             
+    35 00000032 F20F59D1                    mulsd xmm2, xmm1              
+    36 00000036 F24C0F2CCA                  cvttsd2si r9, xmm2            
+    37                                  
+    38                                      ; Calculate the scaled integer part
+    39 0000003B 4C8B1C25[08000000]          mov r11, [precision_int]      ; r11 = 1000
+    40 00000043 4D0FAFD3                    imul r10, r11                 
     41                                  
-    42                                  
-    43 00000054 B801000000                  mov rax, 1                
-    44 00000059 BF01000000                  mov rdi, 1                   
-    45 0000005E 48BE-                       mov rsi, decimal                   
-    45 00000060 [1000000000000000] 
-    46 00000068 BA01000000                  mov rdx, 1                   
-    47 0000006D 0F05                        syscall           
+    42                                      ; Extract the decimal part of the float (RHS)
+    43 00000047 4D89C8                      mov r8, r9                    ; r8 = 634910
+    44 0000004A 4D29D0                      sub r8, r10                   ; 634910 - 634000 = 910 Subtract to get RHS of decimal
+    45 0000004D 4C89C0                      mov rax, r8                   ; rax = 9100
+    46 00000050 E8(00000000)                call int_to_str               ; Convert 9100 to string
+    47 00000055 4989C4                      mov r12, rax
     48                                  
-    49 0000006F B801000000                  mov rax, 1                
-    50 00000074 BF01000000                  mov rdi, 1                   
-    51 00000079 4C89E6                      mov rsi, r12                   
-    52 0000007C BA0A000000                  mov rdx, 10                   
-    53 00000081 0F05                        syscall
-    54                                  
+    49                                      ; Print the decimal part
+    50 00000058 B801000000                  mov rax, 1                
+    51 0000005D BF01000000                  mov rdi, 1                   
+    52 00000062 48BE-                       mov rsi, decimal                   
+    52 00000064 [1000000000000000] 
+    53 0000006C BA01000000                  mov rdx, 1                   
+    54 00000071 0F05                        syscall           
     55                                  
-    56 00000083 C3                          ret
+    56                                      ; Print the right side of the decimal
+    57 00000073 B801000000                  mov rax, 1                
+    58 00000078 BF01000000                  mov rdi, 1                   
+    59 0000007D 4C89E6                      mov rsi, r12                   
+    60 00000080 BA0A000000                  mov rdx, 10                   
+    61 00000085 0F05                        syscall
+    62                                  
+    63 00000087 C3                          ret

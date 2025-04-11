@@ -101,7 +101,7 @@
    100                              <1> %endmacro
    101                              <1> 
    102                              <1> 
-   103                              <1> %macro GET_ARRAY_INPUT 3
+   103                              <1> %macro GET_INPUT 3
    104                              <1>     ; %1 = destination array (e.g., arr)
    105                              <1>     ; %2 = number of elements (e.g., 3)
    106                              <1>     ; %3 = string buffer size (e.g., 32)
@@ -185,8 +185,53 @@
    184                              <1> .loop_end:
    185                              <1>     mov    rax, r15   
    186                              <1> %endmacro
-   187                              <1> 
-   188                              <1> 
+   187                              <1> %macro FTOA_PRINT 0
+   188                              <1>     ; Save original float value
+   189                              <1>     movsd xmm5, xmm0
+   190                              <1> 
+   191                              <1>     ; Extract integer part from float
+   192                              <1>     cvttsd2si rax, xmm0
+   193                              <1>     mov r10, rax
+   194                              <1> 
+   195                              <1>     ; Convert integer part to string and print
+   196                              <1>     call int_to_str
+   197                              <1>     mov rsi, rax
+   198                              <1>     mov rax, 1
+   199                              <1>     mov rdi, 1
+   200                              <1>     mov rdx, 10
+   201                              <1>     syscall
+   202                              <1> 
+   203                              <1>     ; Multiply to shift decimal portion
+   204                              <1>     movsd xmm1, [precision]
+   205                              <1>     movsd xmm2, xmm0
+   206                              <1>     mulsd xmm2, xmm1
+   207                              <1>     cvttsd2si r9, xmm2
+   208                              <1> 
+   209                              <1>     ; Calculate scaled integer part for subtraction
+   210                              <1>     mov r11, [precision_int]
+   211                              <1>     imul r10, r11
+   212                              <1> 
+   213                              <1>     ; Extract decimal digits
+   214                              <1>     mov r8, r9
+   215                              <1>     sub r8, r10
+   216                              <1>     mov rax, r8
+   217                              <1>     call int_to_str
+   218                              <1>     mov r12, rax
+   219                              <1> 
+   220                              <1>     ; Print the decimal point
+   221                              <1>     mov rax, 1
+   222                              <1>     mov rdi, 1
+   223                              <1>     mov rsi, decimal
+   224                              <1>     mov rdx, 1
+   225                              <1>     syscall
+   226                              <1> 
+   227                              <1>     ; Print right-hand side of the decimal
+   228                              <1>     mov rax, 1
+   229                              <1>     mov rdi, 1
+   230                              <1>     mov rsi, r12
+   231                              <1>     mov rdx, 10
+   232                              <1>     syscall
+   233                              <1> %endmacro
      2                                  global tesla
      3                                  
      4                                  section .data
@@ -195,93 +240,92 @@
      7                                  section .bss
      8 00000000 <res 00000340>          backup_storage    resb 832
      9                                  
-    10                                  ; R0 = 1/R1 + 1/R2 + 1/R3
-    11                                  ; total R = 1/R0
-    12                                  
-    13                                  ; formula I = E/R 
-    14                                  
-    15                                  section .text
-    16                                  
-    17                                  tesla:
-    18                                      ; Back up
-    19                                      backupGPRs
-    19 00000000 55                  <1>  push rbp
-    19 00000001 4889E5              <1>  mov rbp, rsp
-    19 00000004 53                  <1>  push rbx
-    19 00000005 51                  <1>  push rcx
-    19 00000006 52                  <1>  push rdx
-    19 00000007 56                  <1>  push rsi
-    19 00000008 57                  <1>  push rdi
-    19 00000009 4150                <1>  push r8
-    19 0000000B 4151                <1>  push r9
-    19 0000000D 4152                <1>  push r10
-    19 0000000F 4153                <1>  push r11
-    19 00000011 4154                <1>  push r12
-    19 00000013 4155                <1>  push r13
-    19 00000015 4156                <1>  push r14
-    19 00000017 4157                <1>  push r15
-    19 00000019 9C                  <1>  pushf
-    20                                      backupNGPRs backup_storage
-    20 0000001A B807000000          <1>  mov rax, 7
-    20 0000001F BA00000000          <1>  mov rdx, 0
-    20 00000024 0FAE2425[00000000]  <1>  xsave [%1]
+    10                                  section .text
+    11                                  
+    12                                  tesla:
+    13                                      backupGPRs
+    13 00000000 55                  <1>  push rbp
+    13 00000001 4889E5              <1>  mov rbp, rsp
+    13 00000004 53                  <1>  push rbx
+    13 00000005 51                  <1>  push rcx
+    13 00000006 52                  <1>  push rdx
+    13 00000007 56                  <1>  push rsi
+    13 00000008 57                  <1>  push rdi
+    13 00000009 4150                <1>  push r8
+    13 0000000B 4151                <1>  push r9
+    13 0000000D 4152                <1>  push r10
+    13 0000000F 4153                <1>  push r11
+    13 00000011 4154                <1>  push r12
+    13 00000013 4155                <1>  push r13
+    13 00000015 4156                <1>  push r14
+    13 00000017 4157                <1>  push r15
+    13 00000019 9C                  <1>  pushf
+    14                                      backupNGPRs backup_storage
+    14 0000001A B807000000          <1>  mov rax, 7
+    14 0000001F BA00000000          <1>  mov rdx, 0
+    14 00000024 0FAE2425[00000000]  <1>  xsave [%1]
+    15                                  
+    16 0000002C 660F57C0                    xorpd xmm0, xmm0
+    17 00000030 4D31FF                      xor r15, r15    ; index counter set to 0
+    18                                  .loop_start:
+    19 00000033 4939F7                      cmp r15, rsi    
+    20 00000036 7D1C                        jge .loop_finish
     21                                  
-    22 0000002C 660F57C0                    xorpd xmm0, xmm0
-    23 00000030 4D31FF                      xor r15, r15    ; index counter set to 0
-    24                                  .loop_start:
-    25 00000033 4939F7                      cmp r15, rsi    
-    26 00000036 7D1C                        jge .loop_finish
-    27                                  
-    28 00000038 F2420F100CFF                movsd xmm1, [rdi + r15*8] ; move current index value into xmm1
-    29                                  
-    30 0000003E F20F101425-                 movsd xmm2, [one]
-    30 00000043 [00000000]         
-    31 00000047 F20F5ED1                    divsd xmm2, xmm1 ; xmm2 = 1/R
-    32                                  
-    33 0000004B F20F58C2                    addsd xmm0, xmm2    ; xmm0 += 1/R
-    34                                  
-    35 0000004F 49FFC7                      inc r15
-    36 00000052 EBDF                        jmp .loop_start
-    37                                  
-    38                                  .loop_finish:
-    39 00000054 F20F101C25-                 movsd xmm3, [one] ; xmm3 holds 1.0
-    39 00000059 [00000000]         
-    40 0000005D F20F5ED8                    divsd xmm3, xmm0 ; xmm3 now holds total resistance = 1/R
-    41 00000061 F20F10C3                    movsd xmm0, xmm3
-    42                                  
-    43 00000065 6A00                        push qword 0
-    44 00000067 F20F110424                  movsd [rsp], xmm0
-    45                                  
-    46                                      restoreNGPRs backup_storage
-    46 0000006C B807000000          <1>  mov rax, 7
-    46 00000071 BA00000000          <1>  mov rdx, 0
-    46 00000076 0FAE2C25[00000000]  <1>  xrstor [%1]
-    47                                  
-    48 0000007E F20F100424                  movsd xmm0, [rsp]
-    49 00000083 58                          pop rax
-    50                                  
-    51                                      restoreGPRs
-    51 00000084 9D                  <1>  popf
-    51 00000085 415F                <1>  pop r15
-    51 00000087 415E                <1>  pop r14
-    51 00000089 415D                <1>  pop r13
-    51 0000008B 415C                <1>  pop r12
-    51 0000008D 415B                <1>  pop r11
-    51 0000008F 415A                <1>  pop r10
-    51 00000091 4159                <1>  pop r9
-    51 00000093 4158                <1>  pop r8
-    51 00000095 5E                  <1>  pop rsi
-    51 00000096 5F                  <1>  pop rdi
-    51 00000097 5A                  <1>  pop rdx
-    51 00000098 59                  <1>  pop rcx
-    51 00000099 5B                  <1>  pop rbx
-    51 0000009A 5D                  <1>  pop rbp
-    52                                  
-    53 0000009B C3                          ret
+    22                                      ; Move current index value into xmm1
+    23 00000038 F2420F100CFF                movsd xmm1, [rdi + r15*8] 
+    24                                  
+    25                                      ; Divivde current resistance by 1.0
+    26 0000003E F20F101425-                 movsd xmm2, [one]
+    26 00000043 [00000000]         
+    27 00000047 F20F5ED1                    divsd xmm2, xmm1 ; xmm2 = 1/R
+    28                                  
+    29                                      ; Add to the total resistance
+    30 0000004B F20F58C2                    addsd xmm0, xmm2    ; xmm0 += 1/R
+    31                                  
+    32                                      ; Increment the index counter
+    33 0000004F 49FFC7                      inc r15
+    34 00000052 EBDF                        jmp .loop_start
+    35                                  
+    36                                  .loop_finish:
+    37 00000054 F20F101C25-                 movsd xmm3, [one] ; xmm3 holds 1.0
+    37 00000059 [00000000]         
+    38 0000005D F20F5ED8                    divsd xmm3, xmm0 ; xmm3 now holds total resistance = 1/R
+    39 00000061 F20F10C3                    movsd xmm0, xmm3
+    40                                  
+    41                                      ; Save the result in the stack
+    42 00000065 6A00                        push qword 0
+    43 00000067 F20F110424                  movsd [rsp], xmm0
+    44                                  
+    45                                      restoreNGPRs backup_storage
+    45 0000006C B807000000          <1>  mov rax, 7
+    45 00000071 BA00000000          <1>  mov rdx, 0
+    45 00000076 0FAE2C25[00000000]  <1>  xrstor [%1]
+    46                                  
+    47 0000007E F20F100424                  movsd xmm0, [rsp]
+    48 00000083 58                          pop rax
+    49                                  
+    50                                      restoreGPRs
+    50 00000084 9D                  <1>  popf
+    50 00000085 415F                <1>  pop r15
+    50 00000087 415E                <1>  pop r14
+    50 00000089 415D                <1>  pop r13
+    50 0000008B 415C                <1>  pop r12
+    50 0000008D 415B                <1>  pop r11
+    50 0000008F 415A                <1>  pop r10
+    50 00000091 4159                <1>  pop r9
+    50 00000093 4158                <1>  pop r8
+    50 00000095 5E                  <1>  pop rsi
+    50 00000096 5F                  <1>  pop rdi
+    50 00000097 5A                  <1>  pop rdx
+    50 00000098 59                  <1>  pop rcx
+    50 00000099 5B                  <1>  pop rbx
+    50 0000009A 5D                  <1>  pop rbp
+    51                                  
+    52 0000009B C3                          ret
+    53                                  
     54                                  
     55                                  
     56                                  
     57                                  
     58                                  
     59                                  
-    60                                  

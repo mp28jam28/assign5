@@ -110,7 +110,7 @@
    100                              <1> %endmacro
    101                              <1> 
    102                              <1> 
-   103                              <1> %macro GET_ARRAY_INPUT 3
+   103                              <1> %macro GET_INPUT 3
    104                              <1>     ; %1 = destination array (e.g., arr)
    105                              <1>     ; %2 = number of elements (e.g., 3)
    106                              <1>     ; %3 = string buffer size (e.g., 32)
@@ -194,102 +194,150 @@
    184                              <1> .loop_end:
    185                              <1>     mov    rax, r15   
    186                              <1> %endmacro
-   187                              <1> 
-   188                              <1> 
+   187                              <1> %macro FTOA_PRINT 0
+   188                              <1>     ; Save original float value
+   189                              <1>     movsd xmm5, xmm0
+   190                              <1> 
+   191                              <1>     ; Extract integer part from float
+   192                              <1>     cvttsd2si rax, xmm0
+   193                              <1>     mov r10, rax
+   194                              <1> 
+   195                              <1>     ; Convert integer part to string and print
+   196                              <1>     call int_to_str
+   197                              <1>     mov rsi, rax
+   198                              <1>     mov rax, 1
+   199                              <1>     mov rdi, 1
+   200                              <1>     mov rdx, 10
+   201                              <1>     syscall
+   202                              <1> 
+   203                              <1>     ; Multiply to shift decimal portion
+   204                              <1>     movsd xmm1, [precision]
+   205                              <1>     movsd xmm2, xmm0
+   206                              <1>     mulsd xmm2, xmm1
+   207                              <1>     cvttsd2si r9, xmm2
+   208                              <1> 
+   209                              <1>     ; Calculate scaled integer part for subtraction
+   210                              <1>     mov r11, [precision_int]
+   211                              <1>     imul r10, r11
+   212                              <1> 
+   213                              <1>     ; Extract decimal digits
+   214                              <1>     mov r8, r9
+   215                              <1>     sub r8, r10
+   216                              <1>     mov rax, r8
+   217                              <1>     call int_to_str
+   218                              <1>     mov r12, rax
+   219                              <1> 
+   220                              <1>     ; Print the decimal point
+   221                              <1>     mov rax, 1
+   222                              <1>     mov rdi, 1
+   223                              <1>     mov rsi, decimal
+   224                              <1>     mov rdx, 1
+   225                              <1>     syscall
+   226                              <1> 
+   227                              <1>     ; Print right-hand side of the decimal
+   228                              <1>     mov rax, 1
+   229                              <1>     mov rdi, 1
+   230                              <1>     mov rsi, r12
+   231                              <1>     mov rdx, 10
+   232                              <1>     syscall
+   233                              <1> %endmacro
     11                                  extern isfloat
     12                                  extern atof
     13                                  extern tesla
-    14                                  extern ftoa
+    14                                  extern int_to_str
     15                                  
-    16                                  section .data
-    17 00000000 506C6561736520656E-     name_prompt db "Please enter your full name: ", 0
-    17 00000009 74657220796F757220-
-    17 00000012 66756C6C206E616D65-
-    17 0000001B 3A2000             
-    18 0000001E 506C6561736520656E-     career_prompt db "Please enter the career path you are following: ", 0
-    18 00000027 746572207468652063-
-    18 00000030 617265657220706174-
-    18 00000039 6820796F7520617265-
-    18 00000042 20666F6C6C6F77696E-
-    18 0000004B 673A2000           
-    19 0000004F 5468616E6B20796F75-     thankyou0 db "Thank you. We appreciate all ", 0
-    19 00000058 2E2057652061707072-
-    19 00000061 65636961746520616C-
-    19 0000006A 6C2000             
-    20 0000006D 73                      thankyou db "s", 
-    21 0000006E 0A                      newline db "", 10
-    22                                  
-    23 0000006F 596F75722063697263-     enter_resist      db "Your circuit has 3 sub-circuits. ", 10
-    23 00000078 756974206861732033-
-    23 00000081 207375622D63697263-
-    23 0000008A 756974732E200A     
-    24 00000091 506C6561736520656E-              db "Please enter the resistance in ohms on each of the three sub-circuits separated by ws.", 10, 0
-    24 0000009A 746572207468652072-
-    24 000000A3 6573697374616E6365-
-    24 000000AC 20696E206F686D7320-
-    24 000000B5 6F6E2065616368206F-
-    24 000000BE 662074686520746872-
-    24 000000C7 6565207375622D6369-
-    24 000000D0 726375697473207365-
-    24 000000D9 706172617465642062-
-    24 000000E2 792077732E0A00     
-    25                                  
-    26 000000E9 5468616E6B20796F75-     total_resist db "Thank you.", 10
-    26 000000F2 2E0A               
-    27 000000F4 54686520746F74616C-              db "The total resistance of the full circuit is computed to be ", 0
-    27 000000FD 20726573697374616E-
-    27 00000106 6365206F6620746865-
-    27 0000010F 2066756C6C20636972-
-    27 00000118 637569742069732063-
-    27 00000121 6F6D70757465642074-
-    27 0000012A 6F2062652000       
-    28                                           
-    29 00000130 206F686D732E0A0A        emf_msg db " ohms.", 10, 10
-    30 00000138 454D4620697320636F-             db "EMF is constant on every branch of any circuit.", 10
-    30 00000141 6E7374616E74206F6E-
-    30 0000014A 206576657279206272-
-    30 00000153 616E6368206F662061-
-    30 0000015C 6E7920636972637569-
-    30 00000165 742E0A             
-    31 00000168 506C6561736520656E-             db "Please enter the EMF of this circuit in volts: ", 0
-    31 00000171 746572207468652045-
-    31 0000017A 4D46206F6620746869-
-    31 00000183 732063697263756974-
-    31 0000018C 20696E20766F6C7473-
-    31 00000195 3A2000             
-    32                                  
-    33 00000198 5468616E6B20796F75-     compute_current db "Thank you.", 10, 10
-    33 000001A1 2E0A0A             
-    34 000001A4 546865206375727265-                     db "The current flowing in this circuit has been computed: "
-    34 000001AD 6E7420666C6F77696E-
-    34 000001B6 6720696E2074686973-
-    34 000001BF 206369726375697420-
-    34 000001C8 686173206265656E20-
-    34 000001D1 636F6D70757465643A-
-    34 000001DA 20                 
-    35 000001DB 616D70730A0A            last_thanks db "amps", 10, 10
-    36 000001E1 5468616E6B20796F75-                 db "Thank you "
-    36 000001EA 20                 
-    37                                  
-    38 000001EB 546865206C61737420-     prompt_input    db "The last input was invalid and not entered into the array. Try again:", 10, 0
-    38 000001F4 696E70757420776173-
-    38 000001FD 20696E76616C696420-
-    38 00000206 616E64206E6F742065-
-    38 0000020F 6E746572656420696E-
-    38 00000218 746F20746865206172-
-    38 00000221 7261792E2054727920-
-    38 0000022A 616761696E3A0A00   
-    39                                  
-    40 00000232 257300                  float_format    db "%s", 0
-    41 00000235 2E00                    decimal db ".", 0             
-    42                                  
-    43                                  
-    44                                  section .bss
-    45 00000000 <res 00000030>          user_name   resb string_size 
-    46 00000030 <res 00000030>          career_path resb string_size
-    47                                  ; resist_format resb 128
-    48 00000060 <res 00000018>          arr         resq 3
-    49 00000078 <res 00000014>          total_resistance resb 20
+    16                                  
+    17                                  section .data
+    18 00000000 506C6561736520656E-     name_prompt db "Please enter your full name: ", 0
+    18 00000009 74657220796F757220-
+    18 00000012 66756C6C206E616D65-
+    18 0000001B 3A2000             
+    19 0000001E 506C6561736520656E-     career_prompt db "Please enter the career path you are following: ", 0
+    19 00000027 746572207468652063-
+    19 00000030 617265657220706174-
+    19 00000039 6820796F7520617265-
+    19 00000042 20666F6C6C6F77696E-
+    19 0000004B 673A2000           
+    20 0000004F 5468616E6B20796F75-     thankyou0 db "Thank you. We appreciate all ", 0
+    20 00000058 2E2057652061707072-
+    20 00000061 65636961746520616C-
+    20 0000006A 6C2000             
+    21 0000006D 73                      thankyou db "s", 
+    22 0000006E 0A                      newline db "", 10
+    23 0000006F 2E00                    decimal db ".", 0
+    24 00000071 0000000084D79741        precision dq 100000000.0              ; For floating-point math
+    25 00000079 00E1F50500000000        precision_int dq 100000000            ; Integer version for integer math
+    26                                  
+    27 00000081 596F75722063697263-     enter_resist      db "Your circuit has 3 sub-circuits. ", 10
+    27 0000008A 756974206861732033-
+    27 00000093 207375622D63697263-
+    27 0000009C 756974732E200A     
+    28 000000A3 506C6561736520656E-              db "Please enter the resistance in ohms on each of the three sub-circuits separated by ws.", 10, 0
+    28 000000AC 746572207468652072-
+    28 000000B5 6573697374616E6365-
+    28 000000BE 20696E206F686D7320-
+    28 000000C7 6F6E2065616368206F-
+    28 000000D0 662074686520746872-
+    28 000000D9 6565207375622D6369-
+    28 000000E2 726375697473207365-
+    28 000000EB 706172617465642062-
+    28 000000F4 792077732E0A00     
+    29                                  
+    30 000000FB 5468616E6B20796F75-     total_resist db "Thank you.", 10
+    30 00000104 2E0A               
+    31 00000106 54686520746F74616C-              db "The total resistance of the full circuit is computed to be ", 0
+    31 0000010F 20726573697374616E-
+    31 00000118 6365206F6620746865-
+    31 00000121 2066756C6C20636972-
+    31 0000012A 637569742069732063-
+    31 00000133 6F6D70757465642074-
+    31 0000013C 6F2062652000       
+    32                                           
+    33 00000142 206F686D732E0A0A        emf_msg db " ohms.", 10, 10
+    34 0000014A 454D4620697320636F-             db "EMF is constant on every branch of any circuit.", 10
+    34 00000153 6E7374616E74206F6E-
+    34 0000015C 206576657279206272-
+    34 00000165 616E6368206F662061-
+    34 0000016E 6E7920636972637569-
+    34 00000177 742E0A             
+    35 0000017A 506C6561736520656E-             db "Please enter the EMF of this circuit in volts: ", 0
+    35 00000183 746572207468652045-
+    35 0000018C 4D46206F6620746869-
+    35 00000195 732063697263756974-
+    35 0000019E 20696E20766F6C7473-
+    35 000001A7 3A2000             
+    36                                  
+    37 000001AA 5468616E6B20796F75-     compute_current db "Thank you.", 10, 10
+    37 000001B3 2E0A0A             
+    38 000001B6 546865206375727265-                     db "The current flowing in this circuit has been computed: "
+    38 000001BF 6E7420666C6F77696E-
+    38 000001C8 6720696E2074686973-
+    38 000001D1 206369726375697420-
+    38 000001DA 686173206265656E20-
+    38 000001E3 636F6D70757465643A-
+    38 000001EC 20                 
+    39 000001ED 20616D70730A            last_thanks db " amps", 10
+    40 000001F3 5468616E6B20796F75-                 db "Thank you ", 0
+    40 000001FC 2000               
+    41                                  
+    42 000001FE 666F72207573696E67-     electricity db "for using this program Electricity.", 10
+    42 00000207 20746869732070726F-
+    42 00000210 6772616D20456C6563-
+    42 00000219 747269636974792E0A 
+    43 00000222 546865206C61737420-     prompt_input    db "The last input was invalid and not entered into the array. Try again:", 10, 0
+    43 0000022B 696E70757420776173-
+    43 00000234 20696E76616C696420-
+    43 0000023D 616E64206E6F742065-
+    43 00000246 6E746572656420696E-
+    43 0000024F 746F20746865206172-
+    43 00000258 7261792E2054727920-
+    43 00000261 616761696E3A0A00   
+    44                                  
+    45                                  section .bss
+    46 00000000 <res 00000030>          user_name   resb string_size 
+    47 00000030 <res 00000030>          career_path resb string_size
+    48 00000060 <res 00000018>          arr resq 3
+    49 00000078 <res 00000008>          emf resq 1
     50                                  
     51                                  section .text
     52                                  global edison
@@ -312,257 +360,428 @@
     55 00000015 4156                <1>  push r14
     55 00000017 4157                <1>  push r15
     55 00000019 9C                  <1>  pushf
-    56                                      ; Print prompt for the user's full name
-    57 0000001A B801000000                  mov rax, SYS_write  
-    58 0000001F BF01000000                  mov rdi, STDOUT     
-    59 00000024 48BE-                       mov rsi, name_prompt        
-    59 00000026 [0000000000000000] 
-    60 0000002E BA1C000000                  mov rdx, 28 
-    61 00000033 0F05                        syscall   
-    62                                  
-    63                                      ; Take name input 
-    64 00000035 B800000000                  mov rax, SYS_read
-    65 0000003A BF00000000                  mov rdi, STDIN
-    66 0000003F 48BE-                       mov rsi, user_name 
-    66 00000041 [0000000000000000] 
-    67 00000049 BA1C000000                  mov rdx, 28 ; read count
-    68 0000004E 0F05                        syscall
-    69                                  
-    70                                      ; Print prompt for the career path
-    71 00000050 B801000000                  mov rax, SYS_write  
-    72 00000055 BF01000000                  mov rdi, STDOUT     
-    73 0000005A 48BE-                       mov rsi, career_prompt        
-    73 0000005C [1E00000000000000] 
-    74 00000064 BA30000000                  mov rdx, 48 
-    75 00000069 0F05                        syscall 
-    76                                  
-    77                                      ; Take career path input 
-    78 0000006B B800000000                  mov rax, SYS_read
-    79 00000070 BF00000000                  mov rdi, STDIN
-    80 00000075 48BE-                       mov rsi, career_path 
-    80 00000077 [3000000000000000] 
-    81 0000007F BA30000000                  mov rdx, string_size ; read count
-    82 00000084 0F05                        syscall
-    83                                  
-    84                                      ; Print prompt the first thank you
-    85 00000086 B801000000                  mov rax, SYS_write  
-    86 0000008B BF01000000                  mov rdi, STDOUT     
-    87 00000090 48BE-                       mov rsi, thankyou0        
-    87 00000092 [4F00000000000000] 
-    88 0000009A BA1E000000                  mov rdx, 30 
-    89 0000009F 0F05                        syscall 
-    90                                  
-    91                                      ; Print career path
-    92 000000A1 B801000000                  mov rax, SYS_write  
-    93 000000A6 BF01000000                  mov rdi, STDOUT     
-    94 000000AB 48BE-                       mov rsi, career_path        
-    94 000000AD [3000000000000000] 
-    95 000000B5 BA14000000                  mov rdx, 20 
-    96 000000BA 0F05                        syscall 
-    97                                  
-    98                                      ; Print newline
-    99 000000BC B801000000                  mov rax, SYS_write  
-   100 000000C1 BF01000000                  mov rdi, STDOUT     
-   101 000000C6 48BE-                       mov rsi, newline        
-   101 000000C8 [6E00000000000000] 
-   102 000000D0 BA01000000                  mov rdx, 1 
-   103 000000D5 0F05                        syscall 
-   104                                  
-   105                                      ; Print prompt for 3 resistance inputs
-   106 000000D7 B801000000                  mov rax, SYS_write  
-   107 000000DC BF01000000                  mov rdi, STDOUT     
-   108 000000E1 48BE-                       mov rsi, enter_resist        
-   108 000000E3 [6F00000000000000] 
-   109 000000EB BA79000000                  mov rdx, 121 
-   110 000000F0 0F05                        syscall 
-   111                                  
-   112                                  ; =========== TAKE INPUT ARRAY OF 3 RESISTANCES DONE ==============
-   113 000000F2 B800000000                  mov rax, 0 
-   114 000000F7 48BF-                       mov rdi, arr       ; array
-   114 000000F9 [6000000000000000] 
-   115 00000101 BE03000000                  mov rsi, 3         ; count
-   116 00000106 BA20000000                  mov rdx, 32        ; string buffer size
-   117                                      GET_ARRAY_INPUT rdi, rsi, rdx
-   117                              <1> 
-   117                              <1> 
-   117                              <1> 
-   117                              <1> 
-   117 0000010B 4D31FF              <1>  xor r15, r15
-   117 0000010E 4989FD              <1>  mov r13, %1
-   117 00000111 4989F6              <1>  mov r14, %2
-   117                              <1> 
-   117                              <1> .loop_start:
-   117 00000114 4D39F7              <1>  cmp r15, r14
-   117 00000117 0F8D91000000        <1>  jge .loop_end
-   117                              <1> 
-   117                              <1> .loop_input:
-   117 0000011D 4831C0              <1>  xor rax, rax
-   117 00000120 6A00                <1>  push qword 0
-   117 00000122 6A00                <1>  push qword 0
-   117                              <1> 
-   117 00000124 B800000000          <1>  mov rax, 0
-   117 00000129 BF00000000          <1>  mov rdi, 0
-   117 0000012E 4889E6              <1>  mov rsi, rsp
-   117 00000131 BA20000000          <1>  mov rdx, 32
-   117 00000136 0F05                <1>  syscall
-   117                              <1> 
-   117 00000138 83F8FF              <1>  cmp eax, -1
-   117 0000013B 746F                <1>  je .ctrl_d
-   117                              <1> 
-   117                              <1> 
-   117 0000013D B900000000          <1>  mov rcx, 0
-   117                              <1> .loop_trim:
-   117 00000142 8A040C              <1>  mov al, byte [rsp + rcx]
-   117 00000145 3C00                <1>  cmp al, 0
-   117 00000147 740F                <1>  je .done_trim
-   117 00000149 3C0A                <1>  cmp al, 10
-   117 0000014B 7506                <1>  jne .not_newline
-   117 0000014D C6040C00            <1>  mov byte [rsp + rcx], 0
-   117 00000151 EB05                <1>  jmp .done_trim
-   117                              <1> .not_newline:
-   117 00000153 48FFC1              <1>  inc rcx
-   117 00000156 EBEA                <1>  jmp .loop_trim
-   117                              <1> .done_trim:
-   117                              <1> 
-   117 00000158 4831C0              <1>  xor rax, rax
-   117 0000015B 4889E7              <1>  mov rdi, rsp
-   117 0000015E E8(00000000)        <1>  call isfloat
-   117 00000163 4883F800            <1>  cmp rax, 0
-   117 00000167 741E                <1>  je .invalid_input
-   117                              <1> 
-   117                              <1> 
-   117 00000169 4831C0              <1>  xor rax, rax
-   117 0000016C 4889E7              <1>  mov rdi, rsp
-   117 0000016F E8(00000000)        <1>  call atof
-   117 00000174 F2440F10F8          <1>  movsd xmm15, xmm0
-   117                              <1> 
-   117                              <1> 
-   117 00000179 F2470F117CFD00      <1>  movsd [r13 + r15*8], xmm15
-   117                              <1> 
-   117 00000180 49FFC7              <1>  inc r15
-   117                              <1> 
-   117 00000183 58                  <1>  pop rax
-   117 00000184 58                  <1>  pop rax
-   117                              <1> 
-   117 00000185 EB8D                <1>  jmp .loop_start
-   117                              <1> 
-   117                              <1> .invalid_input:
-   117 00000187 58                  <1>  pop rax
-   117 00000188 58                  <1>  pop rax
-   117                              <1> 
-   117 00000189 4831C0              <1>  xor rax, rax
-   117 0000018C B801000000          <1>  mov rax, 1
-   117 00000191 BF01000000          <1>  mov rdi, 1
-   117 00000196 48BE-               <1>  mov rsi, prompt_input
-   117 00000198 [EB01000000000000]  <1>
-   117 000001A0 BA1B000000          <1>  mov rdx, 27
-   117 000001A5 0F05                <1>  syscall
-   117                              <1> 
-   117 000001A7 E971FFFFFF          <1>  jmp .loop_input
-   117                              <1> 
-   117                              <1> .ctrl_d:
-   117 000001AC 58                  <1>  pop rax
-   117 000001AD 58                  <1>  pop rax
-   117                              <1> 
-   117                              <1> .loop_end:
-   117 000001AE 4C89F8              <1>  mov rax, r15
-   118                                  
-   119                                      
-   120                                  ; ; =========== CALL TESLA TO COMPUTE_RESISTANCE ==============
+    56                                  
+    57                                      ; Print prompt for the user's full name
+    58 0000001A B801000000                  mov rax, SYS_write  
+    59 0000001F BF01000000                  mov rdi, STDOUT     
+    60 00000024 48BE-                       mov rsi, name_prompt        
+    60 00000026 [0000000000000000] 
+    61 0000002E BA1E000000                  mov rdx, 30
+    62 00000033 0F05                        syscall   
+    63                                  
+    64                                      ; Take name input 
+    65 00000035 B800000000                  mov rax, SYS_read
+    66 0000003A BF00000000                  mov rdi, STDIN
+    67 0000003F 48BE-                       mov rsi, user_name 
+    67 00000041 [0000000000000000] 
+    68 00000049 BA1C000000                  mov rdx, 28 
+    69 0000004E 0F05                        syscall
+    70                                  
+    71                                      ; Print prompt for the career path
+    72 00000050 B801000000                  mov rax, SYS_write  
+    73 00000055 BF01000000                  mov rdi, STDOUT     
+    74 0000005A 48BE-                       mov rsi, career_prompt        
+    74 0000005C [1E00000000000000] 
+    75 00000064 BA30000000                  mov rdx, 48 
+    76 00000069 0F05                        syscall 
+    77                                  
+    78                                      ; Take career path input 
+    79 0000006B B800000000                  mov rax, SYS_read
+    80 00000070 BF00000000                  mov rdi, STDIN
+    81 00000075 48BE-                       mov rsi, career_path 
+    81 00000077 [3000000000000000] 
+    82 0000007F BA30000000                  mov rdx, string_size 
+    83 00000084 0F05                        syscall
+    84                                  
+    85                                      ; Print prompt the first thank you
+    86 00000086 B801000000                  mov rax, SYS_write  
+    87 0000008B BF01000000                  mov rdi, STDOUT     
+    88 00000090 48BE-                       mov rsi, thankyou0        
+    88 00000092 [4F00000000000000] 
+    89 0000009A BA1E000000                  mov rdx, 30 
+    90 0000009F 0F05                        syscall 
+    91                                  
+    92                                      ; Print career path
+    93 000000A1 B801000000                  mov rax, SYS_write  
+    94 000000A6 BF01000000                  mov rdi, STDOUT     
+    95 000000AB 48BE-                       mov rsi, career_path        
+    95 000000AD [3000000000000000] 
+    96 000000B5 BA14000000                  mov rdx, 20 
+    97 000000BA 0F05                        syscall 
+    98                                  
+    99                                      ; Print newline
+   100 000000BC B801000000                  mov rax, SYS_write  
+   101 000000C1 BF01000000                  mov rdi, STDOUT     
+   102 000000C6 48BE-                       mov rsi, newline        
+   102 000000C8 [6E00000000000000] 
+   103 000000D0 BA01000000                  mov rdx, 1 
+   104 000000D5 0F05                        syscall 
+   105                                  
+   106                                      ; Print prompt for 3 resistance inputs
+   107 000000D7 B801000000                  mov rax, SYS_write  
+   108 000000DC BF01000000                  mov rdi, STDOUT     
+   109 000000E1 48BE-                       mov rsi, enter_resist        
+   109 000000E3 [8100000000000000] 
+   110 000000EB BA79000000                  mov rdx, 121 
+   111 000000F0 0F05                        syscall 
+   112                                  
+   113                                      ; Take input array of 3 resistances
+   114 000000F2 B800000000                  mov rax, 0 
+   115 000000F7 48BF-                       mov rdi, arr       ; array
+   115 000000F9 [6000000000000000] 
+   116 00000101 BE03000000                  mov rsi, 3         ; count
+   117 00000106 BA20000000                  mov rdx, 32        ; string buffer size
+   118                                      GET_INPUT rdi, rsi, rdx
+   118                              <1> 
+   118                              <1> 
+   118                              <1> 
+   118                              <1> 
+   118 0000010B 4D31FF              <1>  xor r15, r15
+   118 0000010E 4989FD              <1>  mov r13, %1
+   118 00000111 4989F6              <1>  mov r14, %2
+   118                              <1> 
+   118                              <1> .loop_start:
+   118 00000114 4D39F7              <1>  cmp r15, r14
+   118 00000117 0F8D91000000        <1>  jge .loop_end
+   118                              <1> 
+   118                              <1> .loop_input:
+   118 0000011D 4831C0              <1>  xor rax, rax
+   118 00000120 6A00                <1>  push qword 0
+   118 00000122 6A00                <1>  push qword 0
+   118                              <1> 
+   118 00000124 B800000000          <1>  mov rax, 0
+   118 00000129 BF00000000          <1>  mov rdi, 0
+   118 0000012E 4889E6              <1>  mov rsi, rsp
+   118 00000131 BA20000000          <1>  mov rdx, 32
+   118 00000136 0F05                <1>  syscall
+   118                              <1> 
+   118 00000138 83F8FF              <1>  cmp eax, -1
+   118 0000013B 746F                <1>  je .ctrl_d
+   118                              <1> 
+   118                              <1> 
+   118 0000013D B900000000          <1>  mov rcx, 0
+   118                              <1> .loop_trim:
+   118 00000142 8A040C              <1>  mov al, byte [rsp + rcx]
+   118 00000145 3C00                <1>  cmp al, 0
+   118 00000147 740F                <1>  je .done_trim
+   118 00000149 3C0A                <1>  cmp al, 10
+   118 0000014B 7506                <1>  jne .not_newline
+   118 0000014D C6040C00            <1>  mov byte [rsp + rcx], 0
+   118 00000151 EB05                <1>  jmp .done_trim
+   118                              <1> .not_newline:
+   118 00000153 48FFC1              <1>  inc rcx
+   118 00000156 EBEA                <1>  jmp .loop_trim
+   118                              <1> .done_trim:
+   118                              <1> 
+   118 00000158 4831C0              <1>  xor rax, rax
+   118 0000015B 4889E7              <1>  mov rdi, rsp
+   118 0000015E E8(00000000)        <1>  call isfloat
+   118 00000163 4883F800            <1>  cmp rax, 0
+   118 00000167 741E                <1>  je .invalid_input
+   118                              <1> 
+   118                              <1> 
+   118 00000169 4831C0              <1>  xor rax, rax
+   118 0000016C 4889E7              <1>  mov rdi, rsp
+   118 0000016F E8(00000000)        <1>  call atof
+   118 00000174 F2440F10F8          <1>  movsd xmm15, xmm0
+   118                              <1> 
+   118                              <1> 
+   118 00000179 F2470F117CFD00      <1>  movsd [r13 + r15*8], xmm15
+   118                              <1> 
+   118 00000180 49FFC7              <1>  inc r15
+   118                              <1> 
+   118 00000183 58                  <1>  pop rax
+   118 00000184 58                  <1>  pop rax
+   118                              <1> 
+   118 00000185 EB8D                <1>  jmp .loop_start
+   118                              <1> 
+   118                              <1> .invalid_input:
+   118 00000187 58                  <1>  pop rax
+   118 00000188 58                  <1>  pop rax
+   118                              <1> 
+   118 00000189 4831C0              <1>  xor rax, rax
+   118 0000018C B801000000          <1>  mov rax, 1
+   118 00000191 BF01000000          <1>  mov rdi, 1
+   118 00000196 48BE-               <1>  mov rsi, prompt_input
+   118 00000198 [2202000000000000]  <1>
+   118 000001A0 BA1B000000          <1>  mov rdx, 27
+   118 000001A5 0F05                <1>  syscall
+   118                              <1> 
+   118 000001A7 E971FFFFFF          <1>  jmp .loop_input
+   118                              <1> 
+   118                              <1> .ctrl_d:
+   118 000001AC 58                  <1>  pop rax
+   118 000001AD 58                  <1>  pop rax
+   118                              <1> 
+   118                              <1> .loop_end:
+   118 000001AE 4C89F8              <1>  mov rax, r15
+   119                                  
+   120                                      ; Call the tesla function to compute the resistance
    121 000001B1 B800000000                  mov rax, 0 
    122 000001B6 48BF-                       mov rdi, arr
    122 000001B8 [6000000000000000] 
    123 000001C0 BE03000000                  mov rsi, 3
    124 000001C5 E8(00000000)                call tesla      
-   125 000001CA E8(00000000)                call ftoa                ; convert float to string
-   126                                  
-   127                                  
-   128                                  ; =======================
-   129                                      ; Print total resistance
-   130 000001CF B801000000                  mov rax, SYS_write  
-   131 000001D4 BF01000000                  mov rdi, STDOUT     
-   132 000001D9 48BE-                       mov rsi, total_resist        
-   132 000001DB [E900000000000000] 
-   133 000001E3 BA48000000                  mov rdx, 72
-   134 000001E8 0F05                        syscall  
+   125                                             
+   126                                      ; Print the output message
+   127 000001CA B801000000                  mov rax, SYS_write  
+   128 000001CF BF01000000                  mov rdi, STDOUT     
+   129 000001D4 48BE-                       mov rsi, total_resist        
+   129 000001D6 [FB00000000000000] 
+   130 000001DE BA46000000                  mov rdx, 70
+   131 000001E3 0F05                        syscall  
+   132                                  
+   133                                      ; Convert the value from float to string and print the total resistance
+   134                                      FTOA_PRINT
+   134                              <1> 
+   134 000001E5 F20F10E8            <1>  movsd xmm5, xmm0
+   134                              <1> 
+   134                              <1> 
+   134 000001E9 F2480F2CC0          <1>  cvttsd2si rax, xmm0
+   134 000001EE 4989C2              <1>  mov r10, rax
+   134                              <1> 
+   134                              <1> 
+   134 000001F1 E8(00000000)        <1>  call int_to_str
+   134 000001F6 4889C6              <1>  mov rsi, rax
+   134 000001F9 B801000000          <1>  mov rax, 1
+   134 000001FE BF01000000          <1>  mov rdi, 1
+   134 00000203 BA0A000000          <1>  mov rdx, 10
+   134 00000208 0F05                <1>  syscall
+   134                              <1> 
+   134                              <1> 
+   134 0000020A F20F100C25-         <1>  movsd xmm1, [precision]
+   134 0000020F [71000000]          <1>
+   134 00000213 F20F10D0            <1>  movsd xmm2, xmm0
+   134 00000217 F20F59D1            <1>  mulsd xmm2, xmm1
+   134 0000021B F24C0F2CCA          <1>  cvttsd2si r9, xmm2
+   134                              <1> 
+   134                              <1> 
+   134 00000220 4C8B1C25[79000000]  <1>  mov r11, [precision_int]
+   134 00000228 4D0FAFD3            <1>  imul r10, r11
+   134                              <1> 
+   134                              <1> 
+   134 0000022C 4D89C8              <1>  mov r8, r9
+   134 0000022F 4D29D0              <1>  sub r8, r10
+   134 00000232 4C89C0              <1>  mov rax, r8
+   134 00000235 E8(00000000)        <1>  call int_to_str
+   134 0000023A 4989C4              <1>  mov r12, rax
+   134                              <1> 
+   134                              <1> 
+   134 0000023D B801000000          <1>  mov rax, 1
+   134 00000242 BF01000000          <1>  mov rdi, 1
+   134 00000247 48BE-               <1>  mov rsi, decimal
+   134 00000249 [6F00000000000000]  <1>
+   134 00000251 BA01000000          <1>  mov rdx, 1
+   134 00000256 0F05                <1>  syscall
+   134                              <1> 
+   134                              <1> 
+   134 00000258 B801000000          <1>  mov rax, 1
+   134 0000025D BF01000000          <1>  mov rdi, 1
+   134 00000262 4C89E6              <1>  mov rsi, r12
+   134 00000265 BA0A000000          <1>  mov rdx, 10
+   134 0000026A 0F05                <1>  syscall
    135                                  
-   136                                      ; mov rax, 1                    
-   137                                      ; mov rdi, 1                    
-   138                                      ; mov rsi, r14                  
-   139                                      ; mov rdx, 10                   
-   140                                      ; syscall
-   141                                  
-   142                                      ; mov rax, 1                
-   143                                      ; mov rdi, 1                   
-   144                                      ; mov rsi, decimal                   
-   145                                      ; mov rdx, 1                   
-   146                                      ; syscall           
-   147                                  
-   148                                      ; mov rax, 1                
-   149                                      ; mov rdi, 1                   
-   150                                      ; mov rsi, r12                   
-   151                                      ; mov rdx, 10                   
-   152                                      ; syscall
-   153                                  
-   154                                  
-   155                                  ; =========== PRINT TOTAL RESISTANCE ==============
-   156                                      
+   136                                      ; Print prompt for user to enter the EMF
+   137 0000026C B801000000                  mov rax, SYS_write  
+   138 00000271 BF01000000                  mov rdi, STDOUT     
+   139 00000276 48BE-                       mov rsi, emf_msg        
+   139 00000278 [4201000000000000] 
+   140 00000280 BA67000000                  mov rdx, 103
+   141 00000285 0F05                        syscall 
+   142                                  
+   143                                      ; Take input for emf 
+   144                                  emf_loop: 
+   145 00000287 B800000000                  mov rax, 0 
+   146 0000028C 48BF-                       mov rdi, emf       ; array
+   146 0000028E [7800000000000000] 
+   147 00000296 BE01000000                  mov rsi, 1         ; count
+   148 0000029B BA20000000                  mov rdx, 32        ; string buffer size
+   149                                      GET_INPUT rdi, rsi, rdx
+   149                              <1> 
+   149                              <1> 
+   149                              <1> 
+   149                              <1> 
+   149 000002A0 4D31FF              <1>  xor r15, r15
+   149 000002A3 4989FD              <1>  mov r13, %1
+   149 000002A6 4989F6              <1>  mov r14, %2
+   149                              <1> 
+   149                              <1> .loop_start:
+   149 000002A9 4D39F7              <1>  cmp r15, r14
+   149 000002AC 0F8D91000000        <1>  jge .loop_end
+   149                              <1> 
+   149                              <1> .loop_input:
+   149 000002B2 4831C0              <1>  xor rax, rax
+   149 000002B5 6A00                <1>  push qword 0
+   149 000002B7 6A00                <1>  push qword 0
+   149                              <1> 
+   149 000002B9 B800000000          <1>  mov rax, 0
+   149 000002BE BF00000000          <1>  mov rdi, 0
+   149 000002C3 4889E6              <1>  mov rsi, rsp
+   149 000002C6 BA20000000          <1>  mov rdx, 32
+   149 000002CB 0F05                <1>  syscall
+   149                              <1> 
+   149 000002CD 83F8FF              <1>  cmp eax, -1
+   149 000002D0 746F                <1>  je .ctrl_d
+   149                              <1> 
+   149                              <1> 
+   149 000002D2 B900000000          <1>  mov rcx, 0
+   149                              <1> .loop_trim:
+   149 000002D7 8A040C              <1>  mov al, byte [rsp + rcx]
+   149 000002DA 3C00                <1>  cmp al, 0
+   149 000002DC 740F                <1>  je .done_trim
+   149 000002DE 3C0A                <1>  cmp al, 10
+   149 000002E0 7506                <1>  jne .not_newline
+   149 000002E2 C6040C00            <1>  mov byte [rsp + rcx], 0
+   149 000002E6 EB05                <1>  jmp .done_trim
+   149                              <1> .not_newline:
+   149 000002E8 48FFC1              <1>  inc rcx
+   149 000002EB EBEA                <1>  jmp .loop_trim
+   149                              <1> .done_trim:
+   149                              <1> 
+   149 000002ED 4831C0              <1>  xor rax, rax
+   149 000002F0 4889E7              <1>  mov rdi, rsp
+   149 000002F3 E8(00000000)        <1>  call isfloat
+   149 000002F8 4883F800            <1>  cmp rax, 0
+   149 000002FC 741E                <1>  je .invalid_input
+   149                              <1> 
+   149                              <1> 
+   149 000002FE 4831C0              <1>  xor rax, rax
+   149 00000301 4889E7              <1>  mov rdi, rsp
+   149 00000304 E8(00000000)        <1>  call atof
+   149 00000309 F2440F10F8          <1>  movsd xmm15, xmm0
+   149                              <1> 
+   149                              <1> 
+   149 0000030E F2470F117CFD00      <1>  movsd [r13 + r15*8], xmm15
+   149                              <1> 
+   149 00000315 49FFC7              <1>  inc r15
+   149                              <1> 
+   149 00000318 58                  <1>  pop rax
+   149 00000319 58                  <1>  pop rax
+   149                              <1> 
+   149 0000031A EB8D                <1>  jmp .loop_start
+   149                              <1> 
+   149                              <1> .invalid_input:
+   149 0000031C 58                  <1>  pop rax
+   149 0000031D 58                  <1>  pop rax
+   149                              <1> 
+   149 0000031E 4831C0              <1>  xor rax, rax
+   149 00000321 B801000000          <1>  mov rax, 1
+   149 00000326 BF01000000          <1>  mov rdi, 1
+   149 0000032B 48BE-               <1>  mov rsi, prompt_input
+   149 0000032D [2202000000000000]  <1>
+   149 00000335 BA1B000000          <1>  mov rdx, 27
+   149 0000033A 0F05                <1>  syscall
+   149                              <1> 
+   149 0000033C E971FFFFFF          <1>  jmp .loop_input
+   149                              <1> 
+   149                              <1> .ctrl_d:
+   149 00000341 58                  <1>  pop rax
+   149 00000342 58                  <1>  pop rax
+   149                              <1> 
+   149                              <1> .loop_end:
+   149 00000343 4C89F8              <1>  mov rax, r15
+   150                                  
+   151                                      ; Print that the current is being calculated
+   152 00000346 B801000000                  mov rax, SYS_write  
+   153 0000034B BF01000000                  mov rdi, STDOUT     
+   154 00000350 48BE-                       mov rsi, compute_current        
+   154 00000352 [AA01000000000000] 
+   155 0000035A BA43000000                  mov rdx, 67 
+   156 0000035F 0F05                        syscall 
    157                                  
-   158 000001EA B801000000                  mov rax, SYS_write  
-   159 000001EF BF01000000                  mov rdi, STDOUT     
-   160 000001F4 48BE-                       mov rsi, total_resistance       
-   160 000001F6 [7800000000000000] 
-   161 000001FE BA19000000                  mov rdx, 25
-   162 00000203 0F05                        syscall 
-   163                                  
-   164                                  
-   165                                  ;     ; Print prompt for user to enter the EMF
-   166                                  ;     mov rax, SYS_write  
-   167                                  ;     mov rdi, STDOUT     
-   168                                  ;     mov rsi, emf_msg        
-   169                                  ;     mov rdx, 103
-   170                                  ;     syscall 
+   158                                      ; Compute the current
+   159 00000361 F2440F101425-               movsd xmm10, [emf] ; Load EMF value into xmm10 e/r
+   159 00000367 [78000000]         
+   160 0000036B F2440F5ED5                  divsd xmm10, xmm5
+   161 00000370 F2410F10C2                  movsd xmm0, xmm10
+   162                                      ; Convert the value from float to string and print the current
+   163                                      FTOA_PRINT
+   163                              <1> 
+   163 00000375 F20F10E8            <1>  movsd xmm5, xmm0
+   163                              <1> 
+   163                              <1> 
+   163 00000379 F2480F2CC0          <1>  cvttsd2si rax, xmm0
+   163 0000037E 4989C2              <1>  mov r10, rax
+   163                              <1> 
+   163                              <1> 
+   163 00000381 E8(00000000)        <1>  call int_to_str
+   163 00000386 4889C6              <1>  mov rsi, rax
+   163 00000389 B801000000          <1>  mov rax, 1
+   163 0000038E BF01000000          <1>  mov rdi, 1
+   163 00000393 BA0A000000          <1>  mov rdx, 10
+   163 00000398 0F05                <1>  syscall
+   163                              <1> 
+   163                              <1> 
+   163 0000039A F20F100C25-         <1>  movsd xmm1, [precision]
+   163 0000039F [71000000]          <1>
+   163 000003A3 F20F10D0            <1>  movsd xmm2, xmm0
+   163 000003A7 F20F59D1            <1>  mulsd xmm2, xmm1
+   163 000003AB F24C0F2CCA          <1>  cvttsd2si r9, xmm2
+   163                              <1> 
+   163                              <1> 
+   163 000003B0 4C8B1C25[79000000]  <1>  mov r11, [precision_int]
+   163 000003B8 4D0FAFD3            <1>  imul r10, r11
+   163                              <1> 
+   163                              <1> 
+   163 000003BC 4D89C8              <1>  mov r8, r9
+   163 000003BF 4D29D0              <1>  sub r8, r10
+   163 000003C2 4C89C0              <1>  mov rax, r8
+   163 000003C5 E8(00000000)        <1>  call int_to_str
+   163 000003CA 4989C4              <1>  mov r12, rax
+   163                              <1> 
+   163                              <1> 
+   163 000003CD B801000000          <1>  mov rax, 1
+   163 000003D2 BF01000000          <1>  mov rdi, 1
+   163 000003D7 48BE-               <1>  mov rsi, decimal
+   163 000003D9 [6F00000000000000]  <1>
+   163 000003E1 BA01000000          <1>  mov rdx, 1
+   163 000003E6 0F05                <1>  syscall
+   163                              <1> 
+   163                              <1> 
+   163 000003E8 B801000000          <1>  mov rax, 1
+   163 000003ED BF01000000          <1>  mov rdi, 1
+   163 000003F2 4C89E6              <1>  mov rsi, r12
+   163 000003F5 BA0A000000          <1>  mov rdx, 10
+   163 000003FA 0F05                <1>  syscall
+   164                                      
+   165                                      ; Print the last thanks
+   166 000003FC B801000000                  mov rax, SYS_write  
+   167 00000401 BF01000000                  mov rdi, STDOUT     
+   168 00000406 48BE-                       mov rsi, last_thanks        
+   168 00000408 [ED01000000000000] 
+   169 00000410 BA11000000                  mov rdx, 17
+   170 00000415 0F05                        syscall     
    171                                  
-   172                                  ; ; =========== TAKE INPUT FOR EMF ==============
-   173                                  
-   174                                  ;     ; Print current
-   175                                  ;     mov rax, SYS_write  
-   176                                  ;     mov rdi, STDOUT     
-   177                                  ;     mov rsi, compute_current        
-   178                                  ;     mov rdx, 67 
-   179                                  ;     syscall 
-   180                                  
-   181                                  ; =========== CALL TESLA TO COMPUTE_CURRENT ==============
-   182                                  ; =========== PRINT COMPUTED VALUE ==============
-   183                                  
-   184                                      ; Print the last thanks
-   185                                      ; mov rax, SYS_write  
-   186                                      ; mov rdi, STDOUT     
-   187                                      ; mov rsi, last_thanks        
-   188                                      ; mov rdx, 16 
-   189                                      ; syscall     
-   190                                  
-   191                                      ; ; Print the user's name
-   192                                      ; mov rax, SYS_write  
-   193                                      ; mov rdi, STDOUT     
-   194                                      ; mov rsi, user_name        
-   195                                      ; mov rdx, 16 
-   196                                      ; syscall 
-   197                                  ; =========== PRINT REST OF THE MESSAGE ==============
-   198                                      restoreGPRs
-   198 00000205 9D                  <1>  popf
-   198 00000206 415F                <1>  pop r15
-   198 00000208 415E                <1>  pop r14
-   198 0000020A 415D                <1>  pop r13
-   198 0000020C 415C                <1>  pop r12
-   198 0000020E 415B                <1>  pop r11
-   198 00000210 415A                <1>  pop r10
-   198 00000212 4159                <1>  pop r9
-   198 00000214 4158                <1>  pop r8
-   198 00000216 5E                  <1>  pop rsi
-   198 00000217 5F                  <1>  pop rdi
-   198 00000218 5A                  <1>  pop rdx
-   198 00000219 59                  <1>  pop rcx
-   198 0000021A 5B                  <1>  pop rbx
-   198 0000021B 5D                  <1>  pop rbp
-   199 0000021C C3                          ret
+   172                                      ; Print the user's name
+   173 00000417 B801000000                  mov rax, SYS_write  
+   174 0000041C BF01000000                  mov rdi, STDOUT     
+   175 00000421 48BE-                       mov rsi, user_name        
+   175 00000423 [0000000000000000] 
+   176 0000042B BA10000000                  mov rdx, 16 
+   177 00000430 0F05                        syscall 
+   178                                  
+   179                                      ; Print the final output
+   180 00000432 B801000000                  mov rax, SYS_write  
+   181 00000437 BF01000000                  mov rdi, STDOUT     
+   182 0000043C 48BE-                       mov rsi, electricity        
+   182 0000043E [FE01000000000000] 
+   183 00000446 BA24000000                  mov rdx, 36
+   184 0000044B 0F05                        syscall 
+   185                                  
+   186                                      restoreGPRs
+   186 0000044D 9D                  <1>  popf
+   186 0000044E 415F                <1>  pop r15
+   186 00000450 415E                <1>  pop r14
+   186 00000452 415D                <1>  pop r13
+   186 00000454 415C                <1>  pop r12
+   186 00000456 415B                <1>  pop r11
+   186 00000458 415A                <1>  pop r10
+   186 0000045A 4159                <1>  pop r9
+   186 0000045C 4158                <1>  pop r8
+   186 0000045E 5E                  <1>  pop rsi
+   186 0000045F 5F                  <1>  pop rdi
+   186 00000460 5A                  <1>  pop rdx
+   186 00000461 59                  <1>  pop rcx
+   186 00000462 5B                  <1>  pop rbx
+   186 00000463 5D                  <1>  pop rbp
+   187 00000464 C3                          ret

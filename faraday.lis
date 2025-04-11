@@ -1,5 +1,6 @@
      1                                  extern edison
-     2                                  %include "get_res.inc"  
+     2                                  extern int_to_str
+     3                                  %include "get_res.inc"  
      1                              <1> ;****************************************************************************************************************************
      2                              <1> ; Program name: Non-deterministic Random Numbers
      3                              <1> ; This program generates up to 100 random numbers using the non-deterministic random number generator found inside modern 
@@ -102,7 +103,7 @@
    100                              <1> %endmacro
    101                              <1> 
    102                              <1> 
-   103                              <1> %macro GET_ARRAY_INPUT 3
+   103                              <1> %macro GET_INPUT 3
    104                              <1>     ; %1 = destination array (e.g., arr)
    105                              <1>     ; %2 = number of elements (e.g., 3)
    106                              <1>     ; %3 = string buffer size (e.g., 32)
@@ -186,90 +187,217 @@
    184                              <1> .loop_end:
    185                              <1>     mov    rax, r15   
    186                              <1> %endmacro
-   187                              <1> 
-   188                              <1> 
-     3                                  
+   187                              <1> %macro FTOA_PRINT 0
+   188                              <1>     ; Save original float value
+   189                              <1>     movsd xmm5, xmm0
+   190                              <1> 
+   191                              <1>     ; Extract integer part from float
+   192                              <1>     cvttsd2si rax, xmm0
+   193                              <1>     mov r10, rax
+   194                              <1> 
+   195                              <1>     ; Convert integer part to string and print
+   196                              <1>     call int_to_str
+   197                              <1>     mov rsi, rax
+   198                              <1>     mov rax, 1
+   199                              <1>     mov rdi, 1
+   200                              <1>     mov rdx, 10
+   201                              <1>     syscall
+   202                              <1> 
+   203                              <1>     ; Multiply to shift decimal portion
+   204                              <1>     movsd xmm1, [precision]
+   205                              <1>     movsd xmm2, xmm0
+   206                              <1>     mulsd xmm2, xmm1
+   207                              <1>     cvttsd2si r9, xmm2
+   208                              <1> 
+   209                              <1>     ; Calculate scaled integer part for subtraction
+   210                              <1>     mov r11, [precision_int]
+   211                              <1>     imul r10, r11
+   212                              <1> 
+   213                              <1>     ; Extract decimal digits
+   214                              <1>     mov r8, r9
+   215                              <1>     sub r8, r10
+   216                              <1>     mov rax, r8
+   217                              <1>     call int_to_str
+   218                              <1>     mov r12, rax
+   219                              <1> 
+   220                              <1>     ; Print the decimal point
+   221                              <1>     mov rax, 1
+   222                              <1>     mov rdi, 1
+   223                              <1>     mov rsi, decimal
+   224                              <1>     mov rdx, 1
+   225                              <1>     syscall
+   226                              <1> 
+   227                              <1>     ; Print right-hand side of the decimal
+   228                              <1>     mov rax, 1
+   229                              <1>     mov rdi, 1
+   230                              <1>     mov rsi, r12
+   231                              <1>     mov rdx, 10
+   232                              <1>     syscall
+   233                              <1> %endmacro
      4                                  
-     5                                  STDOUT equ 1       ; Standard output
-     6                                  SYS_write equ 1    ; syscall number for write
-     7                                  SYS_exit equ 60
-     8                                  
+     5                                  
+     6                                  STDOUT equ 1       ; Standard output
+     7                                  SYS_write equ 1    ; syscall number for write
+     8                                  SYS_exit equ 60
      9                                  
-    10                                  
-    11                                  section .data
-    12 00000000 57656C636F6D652074-     welcome_msg db "Welcome to Electricity brought to you by Michelle Pham.", 10
-    12 00000009 6F20456C6563747269-
-    12 00000012 636974792062726F75-
-    12 0000001B 67687420746F20796F-
-    12 00000024 75206279204D696368-
-    12 0000002D 656C6C65205068616D-
-    12 00000036 2E0A               
-    13 00000038 546869732070726F67-                 db "This program will compute the resistance current flow in your direct circuit.", 10, 0
-    13 00000041 72616D2077696C6C20-
-    13 0000004A 636F6D707574652074-
-    13 00000053 686520726573697374-
-    13 0000005C 616E63652063757272-
-    13 00000065 656E7420666C6F7720-
-    13 0000006E 696E20796F75722064-
-    13 00000077 697265637420636972-
-    13 00000080 637569742E0A00     
-    14 00000087 0A00                                db "", 10, 0
-    15 00000089 8900000000000000        msgLen dq $ - welcome_msg 
+    10                                  section .data
+    11 00000000 57656C636F6D652074-     welcome_msg db "Welcome to Electricity brought to you by Michelle Pham.", 10
+    11 00000009 6F20456C6563747269-
+    11 00000012 636974792062726F75-
+    11 0000001B 67687420746F20796F-
+    11 00000024 75206279204D696368-
+    11 0000002D 656C6C65205068616D-
+    11 00000036 2E0A               
+    12 00000038 546869732070726F67-                 db "This program will compute the resistance current flow in your direct circuit.", 10, 0
+    12 00000041 72616D2077696C6C20-
+    12 0000004A 636F6D707574652074-
+    12 00000053 686520726573697374-
+    12 0000005C 616E63652063757272-
+    12 00000065 656E7420666C6F7720-
+    12 0000006E 696E20796F75722064-
+    12 00000077 697265637420636972-
+    12 00000080 637569742E0A00     
+    13 00000087 0A00                                db "", 10, 0
+    14                                  
+    15 00000089 546865206472697665-     driver_msg db "The driver received this number ", 0
+    15 00000092 722072656365697665-
+    15 0000009B 642074686973206E75-
+    15 000000A4 6D6265722000       
     16                                  
-    17 00000091 546865206472697665-     driver_msg db "The driver received this number ", 0
-    17 0000009A 722072656365697665-
-    17 000000A3 642074686973206E75-
-    17 000000AC 6D6265722000       
-    18 000000B2 2100000000000000        driverLen dq $ - driver_msg 
-    19                                  
-    20 000000BA 616E642077696C6C20-     zero_msg db "and will keep it until next semester.", 10
-    20 000000C3 6B6565702069742075-
-    20 000000CC 6E74696C206E657874-
-    20 000000D5 2073656D6573746572-
-    20 000000DE 2E0A               
-    21 000000E0 41207A65726F207769-              db "A zero will be returned to the Operating System", 10, 0
-    21 000000E9 6C6C20626520726574-
-    21 000000F2 75726E656420746F20-
-    21 000000FB 746865204F70657261-
-    21 00000104 74696E672053797374-
-    21 0000010D 656D0A00           
-    22 00000111 5700000000000000        zeroLen dq $ - zero_msg 
-    23                                  
+    17 000000AA 2C20616E642077696C-     zero_msg db ", and will keep it until next semester.", 10
+    17 000000B3 6C206B656570206974-
+    17 000000BC 20756E74696C206E65-
+    17 000000C5 78742073656D657374-
+    17 000000CE 65722E0A           
+    18 000000D2 41207A65726F207769-              db "A zero will be returned to the Operating System", 10, 0
+    18 000000DB 6C6C20626520726574-
+    18 000000E4 75726E656420746F20-
+    18 000000ED 746865204F70657261-
+    18 000000F6 74696E672053797374-
+    18 000000FF 656D0A00           
+    19 00000103 2E00                    decimal db ".", 0
+    20 00000105 0000000084D79741        precision dq 100000000.0              ; For floating-point math
+    21 0000010D 00E1F50500000000        precision_int dq 100000000
+    22                                  
+    23                                  section .bss
     24                                  
-    25                                        ; Compute message length at assembly time
-    26                                  
-    27                                  section .bss
-    28                                  
-    29                                  section .text
-    30                                  global _start             ; Define the entry point
+    25                                  section .text
+    26                                  global _start             ; Define the entry point
+    27                                  
+    28                                  _start:
+    29                                  
+    30                                      backupGPRs
+    30 00000000 55                  <1>  push rbp
+    30 00000001 4889E5              <1>  mov rbp, rsp
+    30 00000004 53                  <1>  push rbx
+    30 00000005 51                  <1>  push rcx
+    30 00000006 52                  <1>  push rdx
+    30 00000007 56                  <1>  push rsi
+    30 00000008 57                  <1>  push rdi
+    30 00000009 4150                <1>  push r8
+    30 0000000B 4151                <1>  push r9
+    30 0000000D 4152                <1>  push r10
+    30 0000000F 4153                <1>  push r11
+    30 00000011 4154                <1>  push r12
+    30 00000013 4155                <1>  push r13
+    30 00000015 4156                <1>  push r14
+    30 00000017 4157                <1>  push r15
+    30 00000019 9C                  <1>  pushf
     31                                  
-    32                                  _start:
-    33                                  
-    34                                  ;     backupGPRs
-    35 00000000 B801000000                  mov rax, SYS_write  
-    36 00000005 BF01000000                  mov rdi, STDOUT     
-    37 0000000A 48BE-                       mov rsi, welcome_msg        
-    37 0000000C [0000000000000000] 
-    38 00000014 488B1425[89000000]          mov rdx, qword [msgLen] 
-    39 0000001C 0F05                        syscall    
-    40                                  
-    41                                      ; ============== CALL EDISION =====================
-    42 0000001E B800000000                  mov rax, 0
-    43 00000023 E8(00000000)                call edison
-    44                                      
-    45                                      ; mov rax, SYS_write  
-    46                                      ; mov rdi, STDOUT     
-    47                                      ; mov rsi, driver_msg        
-    48                                      ; mov rdx, qword [driverLen] 
-    49                                      ; syscall  
-    50                                  
-    51                                      ; mov rax, SYS_write  
-    52                                      ; mov rdi, STDOUT     
-    53                                      ; mov rsi, zero_msg        
-    54                                      ; mov rdx, qword [zeroLen] 
-    55                                      ; syscall  
-    56                                  ;     restoreGPRs
-    57                                  
-    58 00000028 B83C000000                  mov rax, SYS_exit     ; syscall: exit
-    59 0000002D 4831FF                      xor rdi, rdi          ; status 0
-    60 00000030 0F05                        syscall               ; invoke kernel
+    32                                      ; Display the welcome message
+    33 0000001A B801000000                  mov rax, SYS_write  
+    34 0000001F BF01000000                  mov rdi, STDOUT     
+    35 00000024 48BE-                       mov rsi, welcome_msg        
+    35 00000026 [0000000000000000] 
+    36 0000002E BA89000000                  mov rdx, 137
+    37 00000033 0F05                        syscall    
+    38                                  
+    39                                      ; Call the edison function
+    40 00000035 B800000000                  mov rax, 0
+    41 0000003A E8(00000000)                call edison
+    42                                      
+    43                                      ; Display the driver message
+    44 0000003F B801000000                  mov rax, SYS_write  
+    45 00000044 BF01000000                  mov rdi, STDOUT     
+    46 00000049 48BE-                       mov rsi, driver_msg        
+    46 0000004B [8900000000000000] 
+    47 00000053 BA20000000                  mov rdx, 32
+    48 00000058 0F05                        syscall  
+    49                                  
+    50                                      ; Print the returned valaue
+    51                                      FTOA_PRINT
+    51                              <1> 
+    51 0000005A F20F10E8            <1>  movsd xmm5, xmm0
+    51                              <1> 
+    51                              <1> 
+    51 0000005E F2480F2CC0          <1>  cvttsd2si rax, xmm0
+    51 00000063 4989C2              <1>  mov r10, rax
+    51                              <1> 
+    51                              <1> 
+    51 00000066 E8(00000000)        <1>  call int_to_str
+    51 0000006B 4889C6              <1>  mov rsi, rax
+    51 0000006E B801000000          <1>  mov rax, 1
+    51 00000073 BF01000000          <1>  mov rdi, 1
+    51 00000078 BA0A000000          <1>  mov rdx, 10
+    51 0000007D 0F05                <1>  syscall
+    51                              <1> 
+    51                              <1> 
+    51 0000007F F20F100C25-         <1>  movsd xmm1, [precision]
+    51 00000084 [05010000]          <1>
+    51 00000088 F20F10D0            <1>  movsd xmm2, xmm0
+    51 0000008C F20F59D1            <1>  mulsd xmm2, xmm1
+    51 00000090 F24C0F2CCA          <1>  cvttsd2si r9, xmm2
+    51                              <1> 
+    51                              <1> 
+    51 00000095 4C8B1C25[0D010000]  <1>  mov r11, [precision_int]
+    51 0000009D 4D0FAFD3            <1>  imul r10, r11
+    51                              <1> 
+    51                              <1> 
+    51 000000A1 4D89C8              <1>  mov r8, r9
+    51 000000A4 4D29D0              <1>  sub r8, r10
+    51 000000A7 4C89C0              <1>  mov rax, r8
+    51 000000AA E8(00000000)        <1>  call int_to_str
+    51 000000AF 4989C4              <1>  mov r12, rax
+    51                              <1> 
+    51                              <1> 
+    51 000000B2 B801000000          <1>  mov rax, 1
+    51 000000B7 BF01000000          <1>  mov rdi, 1
+    51 000000BC 48BE-               <1>  mov rsi, decimal
+    51 000000BE [0301000000000000]  <1>
+    51 000000C6 BA01000000          <1>  mov rdx, 1
+    51 000000CB 0F05                <1>  syscall
+    51                              <1> 
+    51                              <1> 
+    51 000000CD B801000000          <1>  mov rax, 1
+    51 000000D2 BF01000000          <1>  mov rdi, 1
+    51 000000D7 4C89E6              <1>  mov rsi, r12
+    51 000000DA BA0A000000          <1>  mov rdx, 10
+    51 000000DF 0F05                <1>  syscall
+    52                                  
+    53                                      ; Display the final output message
+    54 000000E1 B801000000                  mov rax, SYS_write  
+    55 000000E6 BF01000000                  mov rdi, STDOUT     
+    56 000000EB 48BE-                       mov rsi, zero_msg        
+    56 000000ED [AA00000000000000] 
+    57 000000F5 BA64000000                  mov rdx, 100 
+    58 000000FA 0F05                        syscall  
+    59                                  
+    60                                      restoreGPRs
+    60 000000FC 9D                  <1>  popf
+    60 000000FD 415F                <1>  pop r15
+    60 000000FF 415E                <1>  pop r14
+    60 00000101 415D                <1>  pop r13
+    60 00000103 415C                <1>  pop r12
+    60 00000105 415B                <1>  pop r11
+    60 00000107 415A                <1>  pop r10
+    60 00000109 4159                <1>  pop r9
+    60 0000010B 4158                <1>  pop r8
+    60 0000010D 5E                  <1>  pop rsi
+    60 0000010E 5F                  <1>  pop rdi
+    60 0000010F 5A                  <1>  pop rdx
+    60 00000110 59                  <1>  pop rcx
+    60 00000111 5B                  <1>  pop rbx
+    60 00000112 5D                  <1>  pop rbp
+    61 00000113 B83C000000                  mov rax, SYS_exit     ; syscall: exit
+    62 00000118 4831FF                      xor rdi, rdi          ; status 0
+    63 0000011B 0F05                        syscall               ; invoke kernel

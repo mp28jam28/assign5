@@ -1,50 +1,56 @@
-;****************************************************************************************************************************
-; Program name: Non-deterministic Random Numbers
-; This program generates up to 100 random numbers using the non-deterministic random number generator found inside modern 
-; x86 microprocessors. The generated numbers are then normalized to the range 1.0 to 2.0 and sorted. 
-; Copyright (C) 2025 Michelle Pham
-;                                                                                                                         
-; This file is part of the software program "Non-deterministic Random Numbers".                                    
-; "Non-deterministic Random Numbers" is free software: you can redistribute it and/or modify it under the terms of    
-; the GNU General Public License version 3 as published by the Free Software Foundation.                                  
-; "Non-deterministic Random Numbers" is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;     
-; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public     
-; License for more details. A copy of the GNU General Public License v3 is available here: <https://www.gnu.org/licenses/>.
-;****************************************************************************************************************************
+;*******************************************************************************************************************
+;Program name: "Electricity". This program computes missing electrical information from a circuit consisting of *
+;three sub-circuits running on direct current (DC). Copyright (C) 2025 Michelle Pham                                
+;                                                                                                                   
+;This file is part of the software program "Electricity".                                                       
+;Electricity is free software: you can redistribute it and/or modify it under the terms of the GNU General    
+;Public License version 3 as published by the Free Software Foundation.                                                  
+;Electricity is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the      
+;implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
+;more details. A copy of the GNU General Public License v3 is available here:  <https://www.gnu.org/licenses/>.               
+;*******************************************************************************************************************
 
-;================================================================================================================================
+;====================================================================================================================
 ;
-; Author Information
+;Author Information
 ;  Name: Michelle Pham
 ;  Email: mp28jam@csu.fullerton.edu
 ;  CWID: 867434789
-;  Course: CPSC 240-03
 ;
-; Program Information
-;  Name: Non-deterministic Random Numbers
-;  Programming Languages: x86-64 Assembly, C++
-;  Effective Date: March 25, 2025
-;  Latest Update: March 25, 2025
-;  Date open source license added: March 25, 2025
-;  Files: main.cpp, executive.asm, fill_random_array.asm, isnan.asm
-;  Status: Incomplete
+;Program Information
+;  Name: Electricity
+;  Programming Language: x86-64 (Pure Assembly)
+;  Effective Date: April 11, 2025
+;  Latest Update: April 11, 2025
+;  Date open source license added: April 11, 2025
+;  Files: atof.asm, edison.asm, faraday.asm, get_res.inc, int_to_str.asm, isfloat.asm, r.sh, tesla.asm
+;  Status: Completed
 ;  References Consulted: Ed Jorgensen, "x86-64 Assembly Language Programming with Ubuntu"
-;  Future Upgrades: Implement advanced sorting algorithms and parallel number generation.
+;  Future Upgrades: Add support for alternating current (AC) and multi-loop circuits. Improve floating-point handling 
+;  and input validation.
 ;
-; Purpose
-;  This program generates up to 100 random numbers using the non-deterministic random number generator (RDRAND) in modern x86 
-;  microprocessors. The generated numbers are normalized to the range 1.0 to 2.0 and then sorted to produce an ordered list. The 
-;  goal is to practice techniques for handling random number generation, normalization, and sorting in x86-64 assembly.
+;Purpose
+;  This program receives partial information about a DC electric circuit composed of three sub-circuits. Based on the 
+;  input provided by the user, it calculates missing values such as voltage, current, or resistance using Ohm’s Law 
+;  and basic circuit rules. This project was designed not only to apply problem-solving to electrical engineering 
+;  concepts, but also to provide the programmer with experience in developing a **pure assembly** program.
 ;
-; Development Information
+;Pure Assembly Philosophy
+;  The program is intentionally built using **pure assembly language**, meaning it uses only the native x86-64 assembly
+;  without relying on supporting languages like C or C++. This contrasts with hybrid assembly programs that interface
+;  with high-level languages. The objective is to give the programmer a deeper understanding of low-level operations 
+;  and direct hardware interaction by avoiding abstraction layers.
+;
+;Development Information
 ;  OS: Ubuntu 22.04.4 LTS
-;  Text Editor: Visual Studio Code
-;  Tools: NASM, G++ compiler, GDB
+;  Text Editor: Github Codespaces
+;  Tools: NASM assembler, LD linker
 ;
-; Current File Information
-;  Name: utilities.inc
-;  Language: x86-64 Assembly with Intel syntax
-;  An include file to store macros for this program.
+;Current File Information
+;  Name: get_res.inc
+;  Language: x86-64 Assembly (Intel syntax)
+;  Max page width: 130 columns
+;  Function Prototype: void input_values(double arr[], long sz)
 ;
 ;================================================================================================================================
 
@@ -100,7 +106,7 @@
 %endmacro
 
 
-%macro GET_ARRAY_INPUT 3
+%macro GET_INPUT 3
     ; %1 = destination array (e.g., arr)
     ; %2 = number of elements (e.g., 3)
     ; %3 = string buffer size (e.g., 32)
@@ -184,5 +190,50 @@
 .loop_end:
     mov    rax, r15   
 %endmacro
+%macro FTOA_PRINT 0
+    ; Save original float value
+    movsd xmm5, xmm0
 
+    ; Extract integer part from float
+    cvttsd2si rax, xmm0
+    mov r10, rax
 
+    ; Convert integer part to string and print
+    call int_to_str
+    mov rsi, rax
+    mov rax, 1
+    mov rdi, 1
+    mov rdx, 10
+    syscall
+
+    ; Multiply to shift decimal portion
+    movsd xmm1, [precision]
+    movsd xmm2, xmm0
+    mulsd xmm2, xmm1
+    cvttsd2si r9, xmm2
+
+    ; Calculate scaled integer part for subtraction
+    mov r11, [precision_int]
+    imul r10, r11
+
+    ; Extract decimal digits
+    mov r8, r9
+    sub r8, r10
+    mov rax, r8
+    call int_to_str
+    mov r12, rax
+
+    ; Print the decimal point
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, decimal
+    mov rdx, 1
+    syscall
+
+    ; Print right-hand side of the decimal
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r12
+    mov rdx, 10
+    syscall
+%endmacro
