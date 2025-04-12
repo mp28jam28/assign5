@@ -51,8 +51,6 @@
 ;  Language: x86-64 Assembly (Intel syntax)
 ;  Max page width: 130 columns
 ;  Assemble: nasm -f elf64 -l int_to_str.lis -o int_to_str.o int_to_str.asm
-;  Function Prototype: void input_values(double arr[], long sz)
-;
 ;================================================================================================================================
 
 section .bss

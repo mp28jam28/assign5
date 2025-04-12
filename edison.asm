@@ -51,7 +51,6 @@
 ;  Language: x86-64 Assembly (Intel syntax)
 ;  Max page width: 130 columns
 ;  Assemble: nasm -f elf64 -l edison.lis -o edison.o edison.asm
-;  Function Prototype: void input_values(double arr[], long sz)
 ;
 ;================================================================================================================================
 
@@ -73,11 +72,8 @@ section .data
 name_prompt db "Please enter your full name: ", 0
 career_prompt db "Please enter the career path you are following: ", 0
 thankyou0 db "Thank you. We appreciate all ", 0
-thankyou db "s", 
+letter_s db "s.", 10, 10
 newline db "", 10
-decimal db ".", 0
-precision dq 100000000.0              ; For floating-point math
-precision_int dq 100000000            ; Integer version for integer math
 
 enter_resist      db "Your circuit has 3 sub-circuits. ", 10
          db "Please enter the resistance in ohms on each of the three sub-circuits separated by ws.", 10, 0
@@ -94,8 +90,12 @@ compute_current db "Thank you.", 10, 10
 last_thanks db " amps", 10
             db "Thank you ", 0
 
-electricity db "for using this program Electricity.", 10
+electricity db " for using this program Electricity. ", 10
 prompt_input    db "The last input was invalid and not entered into the array. Try again:", 10, 0
+
+decimal db ".", 0
+precision dq 10000000.0              ; For floating-point math
+precision_int dq 10000000            ; Integer version for integer math
 
 section .bss
 user_name   resb string_size 
@@ -123,6 +123,8 @@ edison:
     mov rdx, 28 
     syscall
 
+    remove_newline user_name
+
     ; Print prompt for the career path
     mov rax, SYS_write  
     mov rdi, STDOUT     
@@ -137,6 +139,8 @@ edison:
     mov rdx, string_size 
     syscall
 
+    remove_newline career_path;
+
     ; Print prompt the first thank you
     mov rax, SYS_write  
     mov rdi, STDOUT     
@@ -149,6 +153,19 @@ edison:
     mov rdi, STDOUT     
     mov rsi, career_path        
     mov rdx, 20 
+    syscall 
+
+    mov rax, SYS_write  
+    mov rdi, STDOUT     
+    mov rsi, letter_s        
+    mov rdx, 2 
+    syscall 
+
+    ; Print newline
+    mov rax, SYS_write  
+    mov rdi, STDOUT     
+    mov rsi, newline        
+    mov rdx, 1 
     syscall 
 
     ; Print newline
@@ -235,7 +252,7 @@ emf_loop:
     mov rax, SYS_write  
     mov rdi, STDOUT     
     mov rsi, electricity        
-    mov rdx, 36
+    mov rdx, 38
     syscall 
 
     restoreGPRs

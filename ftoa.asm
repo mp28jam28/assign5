@@ -2,8 +2,8 @@ extern int_to_str
 %include "get_res.inc"
 
 section .data
-    precision dq 100000000.0              ; For floating-point math
-    precision_int dq 100000000            ; Integer version for integer math
+    precision dq 10000000.0              ; For floating-point math
+    precision_int dq 10000000            ; Integer version for integer math
     decimal db ".", 0
 
 section .bss

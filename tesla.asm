@@ -51,7 +51,7 @@
 ;  Language: x86-64 Assembly (Intel syntax)
 ;  Max page width: 130 columns
 ;  Assemble: nasm -f elf64 -l tesla.lis -o tesla.o tesla.asm
-;  Function Prototype: void input_values(double arr[], long sz)
+;  Function Prototype: extern double tesla(double* arr, long size);
 ;
 ;================================================================================================================================
 
@@ -107,10 +107,3 @@ tesla:
     restoreGPRs
 
     ret
-
-
-
-
-
-
-

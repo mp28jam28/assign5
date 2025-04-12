@@ -1,33 +1,88 @@
-     1                                  section .bss
-     2 00000000 <res 00000015>              int_buffer resb 21         ; 20 digits max for 64-bit + null terminator
-     3                                  
-     4                                  section .text
-     5                                  global int_to_str
-     6                                  
-     7                                  int_to_str:
-     8 00000000 53                          push rbx
-     9 00000001 51                          push rcx
-    10 00000002 52                          push rdx
-    11                                  
-    12 00000003 B90A000000                  mov rcx, 10                ; Base 10
-    13 00000008 48BB-                       mov rbx, int_buffer
-    13 0000000A [0000000000000000] 
-    14 00000012 4883C314                    add rbx, 20                ; Point to end of buffer
-    15 00000016 C60300                      mov byte [rbx], 0          ; Null-terminate
-    16                                  
-    17                                  .next_digit:
-    18 00000019 4831D2                      xor rdx, rdx
-    19 0000001C 48F7F1                      div rcx                    ; RAX ÷ 10, quotient in RAX, remainder in RDX
-    20 0000001F 4883EB01                    sub rbx, 1
-    21 00000023 80C230                      add dl, '0'                ; Convert digit to ASCII
-    22 00000026 8813                        mov [rbx], dl
-    23                                  
-    24 00000028 4883F800                    cmp rax, 0
-    25 0000002C 75EB                        jne .next_digit            ; Continue loop if RAX > 0
-    26                                  
-    27 0000002E 4889D8                      mov rax, rbx               ; Return pointer to result string in RAX
-    28                                  
-    29 00000031 5A                          pop rdx
-    30 00000032 59                          pop rcx
-    31 00000033 5B                          pop rbx
-    32 00000034 C3                          ret
+     1                                  ;*******************************************************************************************************************
+     2                                  ;Program name: "Electricity". This program computes missing electrical information from a circuit consisting of *
+     3                                  ;three sub-circuits running on direct current (DC). Copyright (C) 2025 Michelle Pham                                
+     4                                  ;                                                                                                                   
+     5                                  ;This file is part of the software program "Electricity".                                                       
+     6                                  ;Electricity is free software: you can redistribute it and/or modify it under the terms of the GNU General    
+     7                                  ;Public License version 3 as published by the Free Software Foundation.                                                  
+     8                                  ;Electricity is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the      
+     9                                  ;implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
+    10                                  ;more details. A copy of the GNU General Public License v3 is available here:  <https://www.gnu.org/licenses/>.               
+    11                                  ;*******************************************************************************************************************
+    12                                  
+    13                                  ;====================================================================================================================
+    14                                  ;
+    15                                  ;Author Information
+    16                                  ;  Name: Michelle Pham
+    17                                  ;  Email: mp28jam@csu.fullerton.edu
+    18                                  ;  CWID: 867434789
+    19                                  ;
+    20                                  ;Program Information
+    21                                  ;  Name: Electricity
+    22                                  ;  Programming Language: x86-64 (Pure Assembly)
+    23                                  ;  Effective Date: April 11, 2025
+    24                                  ;  Latest Update: April 11, 2025
+    25                                  ;  Date open source license added: April 11, 2025
+    26                                  ;  Files: atof.asm, edison.asm, faraday.asm, get_res.inc, int_to_str.asm, isfloat.asm, r.sh, tesla.asm
+    27                                  ;  Status: Completed
+    28                                  ;  References Consulted: Ed Jorgensen, "x86-64 Assembly Language Programming with Ubuntu"
+    29                                  ;  Future Upgrades: Add support for alternating current (AC) and multi-loop circuits. Improve floating-point handling 
+    30                                  ;  and input validation.
+    31                                  ;
+    32                                  ;Purpose
+    33                                  ;  This program receives partial information about a DC electric circuit composed of three sub-circuits. Based on the 
+    34                                  ;  input provided by the user, it calculates missing values such as voltage, current, or resistance using Ohm’s Law 
+    35                                  ;  and basic circuit rules. This project was designed not only to apply problem-solving to electrical engineering 
+    36                                  ;  concepts, but also to provide the programmer with experience in developing a **pure assembly** program.
+    37                                  ;
+    38                                  ;Pure Assembly Philosophy
+    39                                  ;  The program is intentionally built using **pure assembly language**, meaning it uses only the native x86-64 assembly
+    40                                  ;  without relying on supporting languages like C or C++. This contrasts with hybrid assembly programs that interface
+    41                                  ;  with high-level languages. The objective is to give the programmer a deeper understanding of low-level operations 
+    42                                  ;  and direct hardware interaction by avoiding abstraction layers.
+    43                                  ;
+    44                                  ;Development Information
+    45                                  ;  OS: Ubuntu 22.04.4 LTS
+    46                                  ;  Text Editor: Github Codespaces
+    47                                  ;  Tools: NASM assembler, LD linker
+    48                                  ;
+    49                                  ;Current File Information
+    50                                  ;  Name: int_to_str.asm
+    51                                  ;  Language: x86-64 Assembly (Intel syntax)
+    52                                  ;  Max page width: 130 columns
+    53                                  ;  Assemble: nasm -f elf64 -l int_to_str.lis -o int_to_str.o int_to_str.asm
+    54                                  ;================================================================================================================================
+    55                                  
+    56                                  section .bss
+    57 00000000 <res 00000015>              int_buffer resb 21         ; 20 digits max for 64-bit + null terminator
+    58                                  
+    59                                  section .text
+    60                                  global int_to_str
+    61                                  
+    62                                  int_to_str:
+    63 00000000 53                          push rbx
+    64 00000001 51                          push rcx
+    65 00000002 52                          push rdx
+    66                                  
+    67 00000003 B90A000000                  mov rcx, 10                ; Base 10
+    68 00000008 48BB-                       mov rbx, int_buffer
+    68 0000000A [0000000000000000] 
+    69 00000012 4883C314                    add rbx, 20                ; Point to end of buffer
+    70 00000016 C60300                      mov byte [rbx], 0          ; Null-terminate
+    71                                  
+    72                                  .next_digit:
+    73 00000019 4831D2                      xor rdx, rdx
+    74 0000001C 48F7F1                      div rcx                    ; RAX ÷ 10, quotient in RAX, remainder in RDX
+    75 0000001F 4883EB01                    sub rbx, 1
+    76 00000023 80C230                      add dl, '0'                ; Convert digit to ASCII
+    77 00000026 8813                        mov [rbx], dl
+    78                                  
+    79 00000028 4883F800                    cmp rax, 0
+    80 0000002C 75EB                        jne .next_digit            ; Continue loop if RAX > 0
+    81                                  
+    82 0000002E 4889D8                      mov rax, rbx               ; Return pointer to result string in RAX
+    83                                  
+    84 00000031 5A                          pop rdx
+    85 00000032 59                          pop rcx
+    86 00000033 5B                          pop rbx
+    87 00000034 C3                          ret

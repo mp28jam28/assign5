@@ -50,8 +50,6 @@
 ;  Name: get_res.inc
 ;  Language: x86-64 Assembly (Intel syntax)
 ;  Max page width: 130 columns
-;  Function Prototype: void input_values(double arr[], long sz)
-;
 ;================================================================================================================================
 
 ;Back-up GPRs
@@ -190,6 +188,7 @@
 .loop_end:
     mov    rax, r15   
 %endmacro
+
 %macro FTOA_PRINT 0
     ; Save original float value
     movsd xmm5, xmm0
@@ -237,3 +236,22 @@
     mov rdx, 10
     syscall
 %endmacro
+
+%macro remove_newline 1
+    ; %1 = buffer address (e.g., user_name)
+    xor rcx, rcx
+.strip_loop_%1:
+    mov al, [%1 + rcx]
+    cmp al, 0
+    je .done_strip_%1
+    cmp al, 10             ; newline character?
+    jne .not_newline_%1
+    mov byte [%1 + rcx], 0 ; replace newline with null terminator
+    jmp .done_strip_%1
+.not_newline_%1:
+    inc rcx
+    jmp .strip_loop_%1
+.done_strip_%1:
+%endmacro
+
+

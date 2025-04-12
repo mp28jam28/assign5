@@ -50,9 +50,7 @@
 ;  Name: atof.asm
 ;  Language: x86-64 Assembly (Intel syntax)
 ;  Max page width: 130 columns
-;  Assemble: nasm -f elf64 -l atof.lis -o atof.o atof.asm
-;  Function Prototype: void input_values(double arr[], long sz)
-;
+;  Assemble: nasm -f elf64 -l atof.lis -o atof.o atof.asm;
 ;================================================================================================================================
 
 global atof

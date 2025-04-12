@@ -51,8 +51,6 @@
 ;  Language: x86-64 Assembly (Intel syntax)
 ;  Max page width: 130 columns
 ;  Assemble: nasm -f elf64 -l faraday.lis -o faraday.o faraday.asm
-;  Function Prototype: void input_values(double arr[], long sz)
-;
 ;================================================================================================================================
 
 extern edison
@@ -72,14 +70,15 @@ driver_msg db "The driver received this number ", 0
 
 zero_msg db ", and will keep it until next semester.", 10
          db "A zero will be returned to the Operating System", 10, 0
+newline db "", 10
 decimal db ".", 0
-precision dq 100000000.0              ; For floating-point math
-precision_int dq 100000000
+precision dq 10000000.0              ; For floating-point math
+precision_int dq 10000000
 
 section .bss
 
 section .text
-global _start             ; Define the entry point
+global _start            
 
 _start:
 

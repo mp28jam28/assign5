@@ -1,362 +1,440 @@
-     1                                  global atof
-     2                                  
-     3                                  %include "get_res.inc"
-     1                              <1> ;****************************************************************************************************************************
-     2                              <1> ; Program name: Non-deterministic Random Numbers
-     3                              <1> ; This program generates up to 100 random numbers using the non-deterministic random number generator found inside modern 
-     4                              <1> ; x86 microprocessors. The generated numbers are then normalized to the range 1.0 to 2.0 and sorted. 
-     5                              <1> ; Copyright (C) 2025 Michelle Pham
-     6                              <1> ;                                                                                                                         
-     7                              <1> ; This file is part of the software program "Non-deterministic Random Numbers".                                    
-     8                              <1> ; "Non-deterministic Random Numbers" is free software: you can redistribute it and/or modify it under the terms of    
-     9                              <1> ; the GNU General Public License version 3 as published by the Free Software Foundation.                                  
-    10                              <1> ; "Non-deterministic Random Numbers" is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;     
-    11                              <1> ; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public     
-    12                              <1> ; License for more details. A copy of the GNU General Public License v3 is available here: <https://www.gnu.org/licenses/>.
-    13                              <1> ;****************************************************************************************************************************
-    14                              <1> 
-    15                              <1> ;================================================================================================================================
-    16                              <1> ;
-    17                              <1> ; Author Information
-    18                              <1> ;  Name: Michelle Pham
-    19                              <1> ;  Email: mp28jam@csu.fullerton.edu
-    20                              <1> ;  CWID: 867434789
-    21                              <1> ;  Course: CPSC 240-03
-    22                              <1> ;
-    23                              <1> ; Program Information
-    24                              <1> ;  Name: Non-deterministic Random Numbers
-    25                              <1> ;  Programming Languages: x86-64 Assembly, C++
-    26                              <1> ;  Effective Date: March 25, 2025
-    27                              <1> ;  Latest Update: March 25, 2025
-    28                              <1> ;  Date open source license added: March 25, 2025
-    29                              <1> ;  Files: main.cpp, executive.asm, fill_random_array.asm, isnan.asm
-    30                              <1> ;  Status: Incomplete
-    31                              <1> ;  References Consulted: Ed Jorgensen, "x86-64 Assembly Language Programming with Ubuntu"
-    32                              <1> ;  Future Upgrades: Implement advanced sorting algorithms and parallel number generation.
-    33                              <1> ;
-    34                              <1> ; Purpose
-    35                              <1> ;  This program generates up to 100 random numbers using the non-deterministic random number generator (RDRAND) in modern x86 
-    36                              <1> ;  microprocessors. The generated numbers are normalized to the range 1.0 to 2.0 and then sorted to produce an ordered list. The 
-    37                              <1> ;  goal is to practice techniques for handling random number generation, normalization, and sorting in x86-64 assembly.
-    38                              <1> ;
-    39                              <1> ; Development Information
-    40                              <1> ;  OS: Ubuntu 22.04.4 LTS
-    41                              <1> ;  Text Editor: Visual Studio Code
-    42                              <1> ;  Tools: NASM, G++ compiler, GDB
-    43                              <1> ;
-    44                              <1> ; Current File Information
-    45                              <1> ;  Name: utilities.inc
-    46                              <1> ;  Language: x86-64 Assembly with Intel syntax
-    47                              <1> ;  An include file to store macros for this program.
-    48                              <1> ;
-    49                              <1> ;================================================================================================================================
-    50                              <1> 
-    51                              <1> ;Back-up GPRs
-    52                              <1> %macro    backupGPRs 0
-    53                              <1>   push    rbp
-    54                              <1>   mov    rbp, rsp
-    55                              <1>   push    rbx
-    56                              <1>   push    rcx
-    57                              <1>   push    rdx
-    58                              <1>   push    rsi
-    59                              <1>   push    rdi
-    60                              <1>   push    r8
-    61                              <1>   push    r9
-    62                              <1>   push    r10
-    63                              <1>   push    r11
-    64                              <1>   push    r12
-    65                              <1>   push    r13
-    66                              <1>   push    r14
-    67                              <1>   push    r15
-    68                              <1>   pushf
-    69                              <1> %endmacro
-    70                              <1> 
-    71                              <1> ;Restore GPRs
-    72                              <1> %macro    restoreGPRs 0
-    73                              <1>   popf
-    74                              <1>   pop    r15
-    75                              <1>   pop    r14
-    76                              <1>   pop    r13
-    77                              <1>   pop    r12
-    78                              <1>   pop    r11
-    79                              <1>   pop    r10
-    80                              <1>   pop    r9
-    81                              <1>   pop    r8
-    82                              <1>   pop    rsi
-    83                              <1>   pop    rdi
-    84                              <1>   pop    rdx
-    85                              <1>   pop    rcx
-    86                              <1>   pop    rbx
-    87                              <1>   pop    rbp
-    88                              <1> %endmacro
-    89                              <1> 
-    90                              <1> %macro    backupNGPRs 1
-    91                              <1>   mov    rax, 7
-    92                              <1>   mov    rdx, 0
-    93                              <1>   xsave    [%1]
-    94                              <1> %endmacro
-    95                              <1> 
-    96                              <1> %macro    restoreNGPRs 1
-    97                              <1>   mov    rax, 7
-    98                              <1>   mov    rdx, 0
-    99                              <1>   xrstor    [%1]
-   100                              <1> %endmacro
-   101                              <1> 
-   102                              <1> 
-   103                              <1> %macro GET_INPUT 3
-   104                              <1>     ; %1 = destination array (e.g., arr)
-   105                              <1>     ; %2 = number of elements (e.g., 3)
-   106                              <1>     ; %3 = string buffer size (e.g., 32)
-   107                              <1> 
-   108                              <1>     xor    r15, r15             ; r15 = index
-   109                              <1>     mov    r13, %1              ; r13 = base address of array
-   110                              <1>     mov    r14, %2              ; r14 = number of elements
-   111                              <1> 
-   112                              <1> .loop_start:
-   113                              <1>     cmp    r15, r14
-   114                              <1>     jge    .loop_end
-   115                              <1> 
-   116                              <1> .loop_input:
-   117                              <1>     xor    rax, rax             ; clear rax
-   118                              <1>     push   qword 0              ; align stack (16-byte)
-   119                              <1>     push   qword 0
-   120                              <1> 
-   121                              <1>     mov    rax, 0               ; syscall: SYS_read
-   122                              <1>     mov    rdi, 0               ; STDIN
-   123                              <1>     mov    rsi, rsp             ; buffer (top of stack)
-   124                              <1>     mov    rdx, 32              ; buffer size (e.g., 32)
-   125                              <1>     syscall
-   126                              <1> 
-   127                              <1>     cmp    eax, -1
-   128                              <1>     je     .ctrl_d
-   129                              <1> 
-   130                              <1> 
-   131                              <1>     mov     rcx, 0
-   132                              <1> .loop_trim:
-   133                              <1>     mov     al, byte [rsp + rcx]
-   134                              <1>     cmp     al, 0
-   135                              <1>     je      .done_trim
-   136                              <1>     cmp     al, 10             ; newline?
-   137                              <1>     jne     .not_newline
-   138                              <1>     mov     byte [rsp + rcx], 0
-   139                              <1>     jmp     .done_trim
-   140                              <1> .not_newline:
-   141                              <1>     inc     rcx
-   142                              <1>     jmp     .loop_trim
-   143                              <1> .done_trim:
-   144                              <1> 
-   145                              <1>     xor    rax, rax
-   146                              <1>     mov    rdi, rsp
-   147                              <1>     call   isfloat
-   148                              <1>     cmp    rax, 0
-   149                              <1>     je     .invalid_input
-   150                              <1> 
-   151                              <1>     ; Convert input string to float
-   152                              <1>     xor    rax, rax
-   153                              <1>     mov    rdi, rsp
-   154                              <1>     call   atof
-   155                              <1>     movsd  xmm15, xmm0
-   156                              <1> 
-   157                              <1>     ; Store into array
-   158                              <1>     movsd [r13 + r15*8], xmm15
-   159                              <1> 
-   160                              <1>     inc    r15
-   161                              <1> 
-   162                              <1>     pop    rax
-   163                              <1>     pop    rax
-   164                              <1> 
-   165                              <1>     jmp    .loop_start
-   166                              <1> 
-   167                              <1> .invalid_input:
-   168                              <1>     pop    rax
-   169                              <1>     pop    rax
-   170                              <1> 
-   171                              <1>     xor    rax, rax
-   172                              <1>     mov    rax, 1               ; syscall: SYS_write
-   173                              <1>     mov    rdi, 1               ; STDOUT
-   174                              <1>     mov    rsi, prompt_input    ; prompt message address
-   175                              <1>     mov    rdx, 27              ; length of prompt message
-   176                              <1>     syscall
-   177                              <1> 
-   178                              <1>     jmp    .loop_input          ; retry input for the same index
-   179                              <1> 
-   180                              <1> .ctrl_d:
-   181                              <1>     pop    rax
-   182                              <1>     pop    rax
-   183                              <1> 
-   184                              <1> .loop_end:
-   185                              <1>     mov    rax, r15   
-   186                              <1> %endmacro
-   187                              <1> %macro FTOA_PRINT 0
-   188                              <1>     ; Save original float value
-   189                              <1>     movsd xmm5, xmm0
-   190                              <1> 
-   191                              <1>     ; Extract integer part from float
-   192                              <1>     cvttsd2si rax, xmm0
-   193                              <1>     mov r10, rax
-   194                              <1> 
-   195                              <1>     ; Convert integer part to string and print
-   196                              <1>     call int_to_str
-   197                              <1>     mov rsi, rax
-   198                              <1>     mov rax, 1
-   199                              <1>     mov rdi, 1
-   200                              <1>     mov rdx, 10
-   201                              <1>     syscall
-   202                              <1> 
-   203                              <1>     ; Multiply to shift decimal portion
-   204                              <1>     movsd xmm1, [precision]
-   205                              <1>     movsd xmm2, xmm0
-   206                              <1>     mulsd xmm2, xmm1
-   207                              <1>     cvttsd2si r9, xmm2
-   208                              <1> 
-   209                              <1>     ; Calculate scaled integer part for subtraction
-   210                              <1>     mov r11, [precision_int]
-   211                              <1>     imul r10, r11
-   212                              <1> 
-   213                              <1>     ; Extract decimal digits
-   214                              <1>     mov r8, r9
-   215                              <1>     sub r8, r10
-   216                              <1>     mov rax, r8
-   217                              <1>     call int_to_str
-   218                              <1>     mov r12, rax
-   219                              <1> 
-   220                              <1>     ; Print the decimal point
-   221                              <1>     mov rax, 1
-   222                              <1>     mov rdi, 1
-   223                              <1>     mov rsi, decimal
-   224                              <1>     mov rdx, 1
-   225                              <1>     syscall
-   226                              <1> 
-   227                              <1>     ; Print right-hand side of the decimal
-   228                              <1>     mov rax, 1
-   229                              <1>     mov rdi, 1
-   230                              <1>     mov rsi, r12
-   231                              <1>     mov rdx, 10
-   232                              <1>     syscall
-   233                              <1> %endmacro
-     4                                  
-     5                                  section .data
-     6 00000000 0000000000000080            neg_mask dq 0x8000000000000000
-     7                                  
-     8                                  section .bss
-     9                                      align 64
-    10 00000000 <res 00000340>              storedata resb 832
-    11                                  
-    12                                  section .text
-    13                                  
-    14                                  atof:
-    15                                      ; Save registers and SIMD state
-    16                                      backupGPRs
-    16 00000000 55                  <1>  push rbp
-    16 00000001 4889E5              <1>  mov rbp, rsp
-    16 00000004 53                  <1>  push rbx
-    16 00000005 51                  <1>  push rcx
-    16 00000006 52                  <1>  push rdx
-    16 00000007 56                  <1>  push rsi
-    16 00000008 57                  <1>  push rdi
-    16 00000009 4150                <1>  push r8
-    16 0000000B 4151                <1>  push r9
-    16 0000000D 4152                <1>  push r10
-    16 0000000F 4153                <1>  push r11
-    16 00000011 4154                <1>  push r12
-    16 00000013 4155                <1>  push r13
-    16 00000015 4156                <1>  push r14
-    16 00000017 4157                <1>  push r15
-    16 00000019 9C                  <1>  pushf
-    17 0000001A B807000000                  mov     rax, 7
-    18 0000001F BA00000000                  mov     rdx, 0
-    19 00000024 0FAE2425[00000000]          xsave   [storedata]
-    20                                  
-    21 0000002C 4989FF                      mov     r15, rdi            ; r15 = pointer to input string
-    22 0000002F 4D31F6                      xor     r14, r14            ; r14 = index to find decimal point
-    23                                  
-    24                                  search_dot:
-    25 00000032 43803C372E                  cmp     byte [r15 + r14], '.'
-    26 00000037 7405                        je      dot_found
-    27 00000039 49FFC6                      inc     r14
-    28 0000003C EBF4                        jmp     search_dot
-    29                                  
-    30                                  dot_found:
-    31 0000003E 4D31ED                      xor     r13, r13            ; r13 = parsed integer value
-    32 00000041 41BC01000000                mov     r12, 1              ; r12 = multiplier for digit place
-    33 00000047 4D89F3                      mov     r11, r14            ; r11 = index before the dot
-    34 0000004A 49FFCB                      dec     r11
-    35 0000004D 4D31D2                      xor     r10, r10            ; r10 = flag for negative number
-    36                                  
-    37                                  parse_whole:
-    38 00000050 438A041F                    mov     al, byte [r15 + r11]
-    39 00000054 3C2B                        cmp     al, '+'
-    40 00000056 7422                        je      end_whole
-    41 00000058 3C2D                        cmp     al, '-'
-    42 0000005A 7418                        je      set_negative
-    43                                  
-    44 0000005C 2C30                        sub     al, '0'
-    45 0000005E 490FAFC4                    imul    rax, r12
-    46 00000062 4901C5                      add     r13, rax
-    47 00000065 4D6BE40A                    imul    r12, 10
-    48 00000069 49FFCB                      dec     r11
-    49 0000006C 4983FB00                    cmp     r11, 0
-    50 00000070 7DDE                        jge     parse_whole
-    51 00000072 EB06                        jmp     end_whole
-    52                                  
-    53                                  set_negative:
-    54 00000074 41BA01000000                mov     r10, 1
+     1                                  ;*******************************************************************************************************************
+     2                                  ;Program name: "Electricity". This program computes missing electrical information from a circuit consisting of *
+     3                                  ;three sub-circuits running on direct current (DC). Copyright (C) 2025 Michelle Pham                                
+     4                                  ;                                                                                                                   
+     5                                  ;This file is part of the software program "Electricity".                                                       
+     6                                  ;Electricity is free software: you can redistribute it and/or modify it under the terms of the GNU General    
+     7                                  ;Public License version 3 as published by the Free Software Foundation.                                                  
+     8                                  ;Electricity is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the      
+     9                                  ;implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
+    10                                  ;more details. A copy of the GNU General Public License v3 is available here:  <https://www.gnu.org/licenses/>.               
+    11                                  ;*******************************************************************************************************************
+    12                                  
+    13                                  ;====================================================================================================================
+    14                                  ;
+    15                                  ;Author Information
+    16                                  ;  Name: Michelle Pham
+    17                                  ;  Email: mp28jam@csu.fullerton.edu
+    18                                  ;  CWID: 867434789
+    19                                  ;
+    20                                  ;Program Information
+    21                                  ;  Name: Electricity
+    22                                  ;  Programming Language: x86-64 (Pure Assembly)
+    23                                  ;  Effective Date: April 11, 2025
+    24                                  ;  Latest Update: April 11, 2025
+    25                                  ;  Date open source license added: April 11, 2025
+    26                                  ;  Files: atof.asm, edison.asm, faraday.asm, get_res.inc, int_to_str.asm, isfloat.asm, r.sh, tesla.asm
+    27                                  ;  Status: Completed
+    28                                  ;  References Consulted: Ed Jorgensen, "x86-64 Assembly Language Programming with Ubuntu"
+    29                                  ;  Future Upgrades: Add support for alternating current (AC) and multi-loop circuits. Improve floating-point handling 
+    30                                  ;  and input validation.
+    31                                  ;
+    32                                  ;Purpose
+    33                                  ;  This program receives partial information about a DC electric circuit composed of three sub-circuits. Based on the 
+    34                                  ;  input provided by the user, it calculates missing values such as voltage, current, or resistance using Ohm’s Law 
+    35                                  ;  and basic circuit rules. This project was designed not only to apply problem-solving to electrical engineering 
+    36                                  ;  concepts, but also to provide the programmer with experience in developing a **pure assembly** program.
+    37                                  ;
+    38                                  ;Pure Assembly Philosophy
+    39                                  ;  The program is intentionally built using **pure assembly language**, meaning it uses only the native x86-64 assembly
+    40                                  ;  without relying on supporting languages like C or C++. This contrasts with hybrid assembly programs that interface
+    41                                  ;  with high-level languages. The objective is to give the programmer a deeper understanding of low-level operations 
+    42                                  ;  and direct hardware interaction by avoiding abstraction layers.
+    43                                  ;
+    44                                  ;Development Information
+    45                                  ;  OS: Ubuntu 22.04.4 LTS
+    46                                  ;  Text Editor: Github Codespaces
+    47                                  ;  Tools: NASM assembler, LD linker
+    48                                  ;
+    49                                  ;Current File Information
+    50                                  ;  Name: atof.asm
+    51                                  ;  Language: x86-64 Assembly (Intel syntax)
+    52                                  ;  Max page width: 130 columns
+    53                                  ;  Assemble: nasm -f elf64 -l atof.lis -o atof.o atof.asm;
+    54                                  ;================================================================================================================================
     55                                  
-    56                                  end_whole:
-    57 0000007A B80A000000                  mov     rax, 10
-    58 0000007F F24C0F2AD8                  cvtsi2sd xmm11, rax         ; xmm11 = 10.0
-    59 00000084 66450FEFED                  pxor    xmm13, xmm13        ; xmm13 = decimal accumulator
-    60 00000089 F2450F10E3                  movsd   xmm12, xmm11        ; xmm12 = initial divisor (10.0)
+    56                                  global atof
+    57                                  %include "get_res.inc"
+     1                              <1> ;*******************************************************************************************************************
+     2                              <1> ;Program name: "Electricity". This program computes missing electrical information from a circuit consisting of *
+     3                              <1> ;three sub-circuits running on direct current (DC). Copyright (C) 2025 Michelle Pham                                
+     4                              <1> ;                                                                                                                   
+     5                              <1> ;This file is part of the software program "Electricity".                                                       
+     6                              <1> ;Electricity is free software: you can redistribute it and/or modify it under the terms of the GNU General    
+     7                              <1> ;Public License version 3 as published by the Free Software Foundation.                                                  
+     8                              <1> ;Electricity is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the      
+     9                              <1> ;implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
+    10                              <1> ;more details. A copy of the GNU General Public License v3 is available here:  <https://www.gnu.org/licenses/>.               
+    11                              <1> ;*******************************************************************************************************************
+    12                              <1> 
+    13                              <1> ;====================================================================================================================
+    14                              <1> ;
+    15                              <1> ;Author Information
+    16                              <1> ;  Name: Michelle Pham
+    17                              <1> ;  Email: mp28jam@csu.fullerton.edu
+    18                              <1> ;  CWID: 867434789
+    19                              <1> ;
+    20                              <1> ;Program Information
+    21                              <1> ;  Name: Electricity
+    22                              <1> ;  Programming Language: x86-64 (Pure Assembly)
+    23                              <1> ;  Effective Date: April 11, 2025
+    24                              <1> ;  Latest Update: April 11, 2025
+    25                              <1> ;  Date open source license added: April 11, 2025
+    26                              <1> ;  Files: atof.asm, edison.asm, faraday.asm, get_res.inc, int_to_str.asm, isfloat.asm, r.sh, tesla.asm
+    27                              <1> ;  Status: Completed
+    28                              <1> ;  References Consulted: Ed Jorgensen, "x86-64 Assembly Language Programming with Ubuntu"
+    29                              <1> ;  Future Upgrades: Add support for alternating current (AC) and multi-loop circuits. Improve floating-point handling 
+    30                              <1> ;  and input validation.
+    31                              <1> ;
+    32                              <1> ;Purpose
+    33                              <1> ;  This program receives partial information about a DC electric circuit composed of three sub-circuits. Based on the 
+    34                              <1> ;  input provided by the user, it calculates missing values such as voltage, current, or resistance using Ohm’s Law 
+    35                              <1> ;  and basic circuit rules. This project was designed not only to apply problem-solving to electrical engineering 
+    36                              <1> ;  concepts, but also to provide the programmer with experience in developing a **pure assembly** program.
+    37                              <1> ;
+    38                              <1> ;Pure Assembly Philosophy
+    39                              <1> ;  The program is intentionally built using **pure assembly language**, meaning it uses only the native x86-64 assembly
+    40                              <1> ;  without relying on supporting languages like C or C++. This contrasts with hybrid assembly programs that interface
+    41                              <1> ;  with high-level languages. The objective is to give the programmer a deeper understanding of low-level operations 
+    42                              <1> ;  and direct hardware interaction by avoiding abstraction layers.
+    43                              <1> ;
+    44                              <1> ;Development Information
+    45                              <1> ;  OS: Ubuntu 22.04.4 LTS
+    46                              <1> ;  Text Editor: Github Codespaces
+    47                              <1> ;  Tools: NASM assembler, LD linker
+    48                              <1> ;
+    49                              <1> ;Current File Information
+    50                              <1> ;  Name: get_res.inc
+    51                              <1> ;  Language: x86-64 Assembly (Intel syntax)
+    52                              <1> ;  Max page width: 130 columns
+    53                              <1> ;================================================================================================================================
+    54                              <1> 
+    55                              <1> ;Back-up GPRs
+    56                              <1> %macro    backupGPRs 0
+    57                              <1>   push    rbp
+    58                              <1>   mov    rbp, rsp
+    59                              <1>   push    rbx
+    60                              <1>   push    rcx
+    61                              <1>   push    rdx
+    62                              <1>   push    rsi
+    63                              <1>   push    rdi
+    64                              <1>   push    r8
+    65                              <1>   push    r9
+    66                              <1>   push    r10
+    67                              <1>   push    r11
+    68                              <1>   push    r12
+    69                              <1>   push    r13
+    70                              <1>   push    r14
+    71                              <1>   push    r15
+    72                              <1>   pushf
+    73                              <1> %endmacro
+    74                              <1> 
+    75                              <1> ;Restore GPRs
+    76                              <1> %macro    restoreGPRs 0
+    77                              <1>   popf
+    78                              <1>   pop    r15
+    79                              <1>   pop    r14
+    80                              <1>   pop    r13
+    81                              <1>   pop    r12
+    82                              <1>   pop    r11
+    83                              <1>   pop    r10
+    84                              <1>   pop    r9
+    85                              <1>   pop    r8
+    86                              <1>   pop    rsi
+    87                              <1>   pop    rdi
+    88                              <1>   pop    rdx
+    89                              <1>   pop    rcx
+    90                              <1>   pop    rbx
+    91                              <1>   pop    rbp
+    92                              <1> %endmacro
+    93                              <1> 
+    94                              <1> %macro    backupNGPRs 1
+    95                              <1>   mov    rax, 7
+    96                              <1>   mov    rdx, 0
+    97                              <1>   xsave    [%1]
+    98                              <1> %endmacro
+    99                              <1> 
+   100                              <1> %macro    restoreNGPRs 1
+   101                              <1>   mov    rax, 7
+   102                              <1>   mov    rdx, 0
+   103                              <1>   xrstor    [%1]
+   104                              <1> %endmacro
+   105                              <1> 
+   106                              <1> 
+   107                              <1> %macro GET_INPUT 3
+   108                              <1>     ; %1 = destination array (e.g., arr)
+   109                              <1>     ; %2 = number of elements (e.g., 3)
+   110                              <1>     ; %3 = string buffer size (e.g., 32)
+   111                              <1> 
+   112                              <1>     xor    r15, r15             ; r15 = index
+   113                              <1>     mov    r13, %1              ; r13 = base address of array
+   114                              <1>     mov    r14, %2              ; r14 = number of elements
+   115                              <1> 
+   116                              <1> .loop_start:
+   117                              <1>     cmp    r15, r14
+   118                              <1>     jge    .loop_end
+   119                              <1> 
+   120                              <1> .loop_input:
+   121                              <1>     xor    rax, rax             ; clear rax
+   122                              <1>     push   qword 0              ; align stack (16-byte)
+   123                              <1>     push   qword 0
+   124                              <1> 
+   125                              <1>     mov    rax, 0               ; syscall: SYS_read
+   126                              <1>     mov    rdi, 0               ; STDIN
+   127                              <1>     mov    rsi, rsp             ; buffer (top of stack)
+   128                              <1>     mov    rdx, 32              ; buffer size (e.g., 32)
+   129                              <1>     syscall
+   130                              <1> 
+   131                              <1>     cmp    eax, -1
+   132                              <1>     je     .ctrl_d
+   133                              <1> 
+   134                              <1> 
+   135                              <1>     mov     rcx, 0
+   136                              <1> .loop_trim:
+   137                              <1>     mov     al, byte [rsp + rcx]
+   138                              <1>     cmp     al, 0
+   139                              <1>     je      .done_trim
+   140                              <1>     cmp     al, 10             ; newline?
+   141                              <1>     jne     .not_newline
+   142                              <1>     mov     byte [rsp + rcx], 0
+   143                              <1>     jmp     .done_trim
+   144                              <1> .not_newline:
+   145                              <1>     inc     rcx
+   146                              <1>     jmp     .loop_trim
+   147                              <1> .done_trim:
+   148                              <1> 
+   149                              <1>     xor    rax, rax
+   150                              <1>     mov    rdi, rsp
+   151                              <1>     call   isfloat
+   152                              <1>     cmp    rax, 0
+   153                              <1>     je     .invalid_input
+   154                              <1> 
+   155                              <1>     ; Convert input string to float
+   156                              <1>     xor    rax, rax
+   157                              <1>     mov    rdi, rsp
+   158                              <1>     call   atof
+   159                              <1>     movsd  xmm15, xmm0
+   160                              <1> 
+   161                              <1>     ; Store into array
+   162                              <1>     movsd [r13 + r15*8], xmm15
+   163                              <1> 
+   164                              <1>     inc    r15
+   165                              <1> 
+   166                              <1>     pop    rax
+   167                              <1>     pop    rax
+   168                              <1> 
+   169                              <1>     jmp    .loop_start
+   170                              <1> 
+   171                              <1> .invalid_input:
+   172                              <1>     pop    rax
+   173                              <1>     pop    rax
+   174                              <1> 
+   175                              <1>     xor    rax, rax
+   176                              <1>     mov    rax, 1               ; syscall: SYS_write
+   177                              <1>     mov    rdi, 1               ; STDOUT
+   178                              <1>     mov    rsi, prompt_input    ; prompt message address
+   179                              <1>     mov    rdx, 27              ; length of prompt message
+   180                              <1>     syscall
+   181                              <1> 
+   182                              <1>     jmp    .loop_input          ; retry input for the same index
+   183                              <1> 
+   184                              <1> .ctrl_d:
+   185                              <1>     pop    rax
+   186                              <1>     pop    rax
+   187                              <1> 
+   188                              <1> .loop_end:
+   189                              <1>     mov    rax, r15   
+   190                              <1> %endmacro
+   191                              <1> 
+   192                              <1> %macro FTOA_PRINT 0
+   193                              <1>     ; Save original float value
+   194                              <1>     movsd xmm5, xmm0
+   195                              <1> 
+   196                              <1>     ; Extract integer part from float
+   197                              <1>     cvttsd2si rax, xmm0
+   198                              <1>     mov r10, rax
+   199                              <1> 
+   200                              <1>     ; Convert integer part to string and print
+   201                              <1>     call int_to_str
+   202                              <1>     mov rsi, rax
+   203                              <1>     mov rax, 1
+   204                              <1>     mov rdi, 1
+   205                              <1>     mov rdx, 10
+   206                              <1>     syscall
+   207                              <1> 
+   208                              <1>     ; Multiply to shift decimal portion
+   209                              <1>     movsd xmm1, [precision]
+   210                              <1>     movsd xmm2, xmm0
+   211                              <1>     mulsd xmm2, xmm1
+   212                              <1>     cvttsd2si r9, xmm2
+   213                              <1> 
+   214                              <1>     ; Calculate scaled integer part for subtraction
+   215                              <1>     mov r11, [precision_int]
+   216                              <1>     imul r10, r11
+   217                              <1> 
+   218                              <1>     ; Extract decimal digits
+   219                              <1>     mov r8, r9
+   220                              <1>     sub r8, r10
+   221                              <1>     mov rax, r8
+   222                              <1>     call int_to_str
+   223                              <1>     mov r12, rax
+   224                              <1> 
+   225                              <1>     ; Print the decimal point
+   226                              <1>     mov rax, 1
+   227                              <1>     mov rdi, 1
+   228                              <1>     mov rsi, decimal
+   229                              <1>     mov rdx, 1
+   230                              <1>     syscall
+   231                              <1> 
+   232                              <1>     ; Print right-hand side of the decimal
+   233                              <1>     mov rax, 1
+   234                              <1>     mov rdi, 1
+   235                              <1>     mov rsi, r12
+   236                              <1>     mov rdx, 10
+   237                              <1>     syscall
+   238                              <1> %endmacro
+   239                              <1> 
+   240                              <1> %macro remove_newline 1
+   241                              <1>     ; %1 = buffer address (e.g., user_name)
+   242                              <1>     xor rcx, rcx
+   243                              <1> .strip_loop_%1:
+   244                              <1>     mov al, [%1 + rcx]
+   245                              <1>     cmp al, 0
+   246                              <1>     je .done_strip_%1
+   247                              <1>     cmp al, 10             ; newline character?
+   248                              <1>     jne .not_newline_%1
+   249                              <1>     mov byte [%1 + rcx], 0 ; replace newline with null terminator
+   250                              <1>     jmp .done_strip_%1
+   251                              <1> .not_newline_%1:
+   252                              <1>     inc rcx
+   253                              <1>     jmp .strip_loop_%1
+   254                              <1> .done_strip_%1:
+   255                              <1> %endmacro
+   256                              <1> 
+   257                              <1> 
+    58                                  
+    59                                  section .data
+    60 00000000 0000000000000080            neg_mask dq 0x8000000000000000
     61                                  
-    62 0000008E 49FFC6                      inc     r14                 ; Move past the '.'
-    63                                  
-    64                                  parse_frac:
-    65 00000091 438A0437                    mov     al, byte [r15 + r14]
-    66 00000095 2C30                        sub     al, '0'
-    67 00000097 F2480F2AC0                  cvtsi2sd xmm0, rax
-    68 0000009C F2410F5EC4                  divsd   xmm0, xmm12
-    69 000000A1 F2440F58E8                  addsd   xmm13, xmm0
-    70 000000A6 F2450F59E3                  mulsd   xmm12, xmm11
-    71 000000AB 49FFC6                      inc     r14
-    72 000000AE 43803C3700                  cmp     byte [r15 + r14], 0
-    73 000000B3 75DC                        jne     parse_frac
+    62                                  section .bss
+    63                                      align 64
+    64 00000000 <res 00000340>              storedata resb 832
+    65                                  
+    66                                  section .text
+    67                                  
+    68                                  atof:
+    69                                      ; Save registers and SIMD state
+    70                                      backupGPRs
+    70 00000000 55                  <1>  push rbp
+    70 00000001 4889E5              <1>  mov rbp, rsp
+    70 00000004 53                  <1>  push rbx
+    70 00000005 51                  <1>  push rcx
+    70 00000006 52                  <1>  push rdx
+    70 00000007 56                  <1>  push rsi
+    70 00000008 57                  <1>  push rdi
+    70 00000009 4150                <1>  push r8
+    70 0000000B 4151                <1>  push r9
+    70 0000000D 4152                <1>  push r10
+    70 0000000F 4153                <1>  push r11
+    70 00000011 4154                <1>  push r12
+    70 00000013 4155                <1>  push r13
+    70 00000015 4156                <1>  push r14
+    70 00000017 4157                <1>  push r15
+    70 00000019 9C                  <1>  pushf
+    71 0000001A B807000000                  mov     rax, 7
+    72 0000001F BA00000000                  mov     rdx, 0
+    73 00000024 0FAE2425[00000000]          xsave   [storedata]
     74                                  
-    75 000000B5 F2490F2AC5                  cvtsi2sd xmm0, r13
-    76 000000BA F2410F58C5                  addsd   xmm0, xmm13         ; xmm0 = full float value
+    75 0000002C 4989FF                      mov     r15, rdi            ; r15 = pointer to input string
+    76 0000002F 4D31F6                      xor     r14, r14            ; r14 = index to find decimal point
     77                                  
-    78 000000BF 4983FA00                    cmp     r10, 0
-    79 000000C3 740C                        je      finish
-    80                                  
-    81                                      ; If negative, apply negation by flipping sign bit
-    82 000000C5 F20F100C25-                 movsd   xmm1, [neg_mask]
-    82 000000CA [00000000]         
-    83 000000CE 0F57C1                      xorps   xmm0, xmm1
-    84                                  
-    85                                  finish:
-    86 000000D1 6A00                        push    qword 0
-    87 000000D3 F20F110424                  movsd   [rsp], xmm0
-    88                                  
-    89                                      ; Restore SIMD state and registers
-    90 000000D8 B807000000                  mov     rax, 7
-    91 000000DD BA00000000                  mov     rdx, 0
-    92 000000E2 0FAE2C25[00000000]          xrstor  [storedata]
-    93 000000EA F20F100424                  movsd   xmm0, [rsp]
-    94 000000EF 58                          pop     rax
-    95                                  
-    96                                      restoreGPRs
-    96 000000F0 9D                  <1>  popf
-    96 000000F1 415F                <1>  pop r15
-    96 000000F3 415E                <1>  pop r14
-    96 000000F5 415D                <1>  pop r13
-    96 000000F7 415C                <1>  pop r12
-    96 000000F9 415B                <1>  pop r11
-    96 000000FB 415A                <1>  pop r10
-    96 000000FD 4159                <1>  pop r9
-    96 000000FF 4158                <1>  pop r8
-    96 00000101 5E                  <1>  pop rsi
-    96 00000102 5F                  <1>  pop rdi
-    96 00000103 5A                  <1>  pop rdx
-    96 00000104 59                  <1>  pop rcx
-    96 00000105 5B                  <1>  pop rbx
-    96 00000106 5D                  <1>  pop rbp
-    97 00000107 C3                          ret
+    78                                  search_dot:
+    79 00000032 43803C372E                  cmp     byte [r15 + r14], '.'
+    80 00000037 7405                        je      dot_found
+    81 00000039 49FFC6                      inc     r14
+    82 0000003C EBF4                        jmp     search_dot
+    83                                  
+    84                                  dot_found:
+    85 0000003E 4D31ED                      xor     r13, r13            ; r13 = parsed integer value
+    86 00000041 41BC01000000                mov     r12, 1              ; r12 = multiplier for digit place
+    87 00000047 4D89F3                      mov     r11, r14            ; r11 = index before the dot
+    88 0000004A 49FFCB                      dec     r11
+    89 0000004D 4D31D2                      xor     r10, r10            ; r10 = flag for negative number
+    90                                  
+    91                                  parse_whole:
+    92 00000050 438A041F                    mov     al, byte [r15 + r11]
+    93 00000054 3C2B                        cmp     al, '+'
+    94 00000056 7422                        je      end_whole
+    95 00000058 3C2D                        cmp     al, '-'
+    96 0000005A 7418                        je      set_negative
+    97                                  
+    98 0000005C 2C30                        sub     al, '0'
+    99 0000005E 490FAFC4                    imul    rax, r12
+   100 00000062 4901C5                      add     r13, rax
+   101 00000065 4D6BE40A                    imul    r12, 10
+   102 00000069 49FFCB                      dec     r11
+   103 0000006C 4983FB00                    cmp     r11, 0
+   104 00000070 7DDE                        jge     parse_whole
+   105 00000072 EB06                        jmp     end_whole
+   106                                  
+   107                                  set_negative:
+   108 00000074 41BA01000000                mov     r10, 1
+   109                                  
+   110                                  end_whole:
+   111 0000007A B80A000000                  mov     rax, 10
+   112 0000007F F24C0F2AD8                  cvtsi2sd xmm11, rax         ; xmm11 = 10.0
+   113 00000084 66450FEFED                  pxor    xmm13, xmm13        ; xmm13 = decimal accumulator
+   114 00000089 F2450F10E3                  movsd   xmm12, xmm11        ; xmm12 = initial divisor (10.0)
+   115                                  
+   116 0000008E 49FFC6                      inc     r14                 ; Move past the '.'
+   117                                  
+   118                                  parse_frac:
+   119 00000091 438A0437                    mov     al, byte [r15 + r14]
+   120 00000095 2C30                        sub     al, '0'
+   121 00000097 F2480F2AC0                  cvtsi2sd xmm0, rax
+   122 0000009C F2410F5EC4                  divsd   xmm0, xmm12
+   123 000000A1 F2440F58E8                  addsd   xmm13, xmm0
+   124 000000A6 F2450F59E3                  mulsd   xmm12, xmm11
+   125 000000AB 49FFC6                      inc     r14
+   126 000000AE 43803C3700                  cmp     byte [r15 + r14], 0
+   127 000000B3 75DC                        jne     parse_frac
+   128                                  
+   129 000000B5 F2490F2AC5                  cvtsi2sd xmm0, r13
+   130 000000BA F2410F58C5                  addsd   xmm0, xmm13         ; xmm0 = full float value
+   131                                  
+   132 000000BF 4983FA00                    cmp     r10, 0
+   133 000000C3 740C                        je      finish
+   134                                  
+   135                                      ; If negative, apply negation by flipping sign bit
+   136 000000C5 F20F100C25-                 movsd   xmm1, [neg_mask]
+   136 000000CA [00000000]         
+   137 000000CE 0F57C1                      xorps   xmm0, xmm1
+   138                                  
+   139                                  finish:
+   140 000000D1 6A00                        push    qword 0
+   141 000000D3 F20F110424                  movsd   [rsp], xmm0
+   142                                  
+   143                                      ; Restore SIMD state and registers
+   144 000000D8 B807000000                  mov     rax, 7
+   145 000000DD BA00000000                  mov     rdx, 0
+   146 000000E2 0FAE2C25[00000000]          xrstor  [storedata]
+   147 000000EA F20F100424                  movsd   xmm0, [rsp]
+   148 000000EF 58                          pop     rax
+   149                                  
+   150                                      restoreGPRs
+   150 000000F0 9D                  <1>  popf
+   150 000000F1 415F                <1>  pop r15
+   150 000000F3 415E                <1>  pop r14
+   150 000000F5 415D                <1>  pop r13
+   150 000000F7 415C                <1>  pop r12
+   150 000000F9 415B                <1>  pop r11
+   150 000000FB 415A                <1>  pop r10
+   150 000000FD 4159                <1>  pop r9
+   150 000000FF 4158                <1>  pop r8
+   150 00000101 5E                  <1>  pop rsi
+   150 00000102 5F                  <1>  pop rdi
+   150 00000103 5A                  <1>  pop rdx
+   150 00000104 59                  <1>  pop rcx
+   150 00000105 5B                  <1>  pop rbx
+   150 00000106 5D                  <1>  pop rbp
+   151 00000107 C3                          ret
